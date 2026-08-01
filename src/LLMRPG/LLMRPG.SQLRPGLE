@@ -801,7 +801,7 @@ dcl-proc callLLM;
         // uses the job-level SQL globals set by setForJob().
         Exec SQL
             SET :llmResponse = (
-                VALUES dbsdk_v1.openai_compatible_generate(
+                VALUES dbsdk_v1.openai_compatible_chat_generate(
                     prompt   => TRIM(:in_prompt),
                     options  => '{}' )
             );
