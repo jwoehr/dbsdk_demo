@@ -1,4 +1,18 @@
 **free
+// =============================================================================
+// File:    LLMRPG.SQLRPGLE
+// Date:    2026-07-31
+// Purpose: IBM i ILE RPG program providing an interactive 5250 interface for
+//          querying large language models via the Db2 for i AI SDK. Supports
+//          Ollama and OpenAI-compatible backends. Configuration is stored per
+//          job or as a user-level default. Prompts and responses are displayed
+//          through the LLMDSPF display file.
+// License: Apache License, Version 2.0
+//          https://www.apache.org/licenses/LICENSE-2.0
+// Authors: Jack Woehr <jwoehr@softwoehr.com>
+//          IBM Bob (AI pair programmer)
+// Thanks:  Patrick Behr <pbehr@behrbros.com>
+// =============================================================================
 
 ctl-opt dftactgrp(*no) option(*srcstmt : *nodebugio);
 

@@ -1,3 +1,16 @@
+     A*=============================================================================
+     A* File:    LLMDSPF.DSPF
+     A* Date:    2026-07-31
+     A* Purpose: DDS display file for LLMRPG. Provides the 5250 screens for
+     A*          entering prompts, viewing LLM responses, and configuring Ollama
+     A*          and OpenAI-compatible backend connection parameters. Includes
+     A*          subfiles for field prompting and program message display.
+     A* License: Apache License, Version 2.0
+     A*          https://www.apache.org/licenses/LICENSE-2.0
+     A* Authors: Jack Woehr <jwoehr@softwoehr.com>
+     A*          IBM Bob (AI pair programmer)
+     A* Thanks:  Patrick Behr <pbehr@behrbros.com>
+     A*=============================================================================
      A                                      DSPSIZ(24 80 *DS3)
      A                                      INDARA
      A*                                     function keys used
