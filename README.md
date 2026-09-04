@@ -29,7 +29,7 @@ which supplies the SQL scalar functions used to call LLM endpoints.
 
 ## Project Layout
 
-```
+```text
 dbsdk_demo/
 ├── README.md                        This file
 ├── LICENSE                          Apache 2.0 license text
@@ -88,7 +88,7 @@ DDS display file defining all 5250 screen records used by `LLMRPG`:
 GNU `make` build script intended to run in IBM i PASE. Compiles the display
 file and RPG program into an IBM i library.
 
-```
+```text
 make [target] [TARGET_LIB=<lib>] [SOURCE_LIB=<lib>] [VERBOSE=1]
 
 Targets:
@@ -121,7 +121,7 @@ See <https://ai.google.dev/gemini-api/docs/openai> for details.
 
 After building with `make`:
 
-```
+```text
 ADDLIBLE DBSDK_V1
 CALL PGM(DBSDK_DEMO/LLMRPG)
 ```
