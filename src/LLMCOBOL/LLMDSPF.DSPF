@@ -14,7 +14,7 @@
      A                                      DSPSIZ(24 80 *DS3)
      A                                      INDARA
      A*                                     function keys used
-     A                                      CA03 CA04 CF06 CA12
+     A                                      CA03(03) CA04(04) CF06(06) CA12(12)
      A                                      PAGEUP
      A                                      PAGEDOWN
      A*                                     include remaining keys to prevent
@@ -171,7 +171,7 @@
      A            P_TEXT        70A  O  6  5
      A*----------------------------------------------------------------
      A          R PROMPTCTL                 SFLCTL(PROMPTSFL)
-     A                                      SFLSIZ(1000)
+     A                                      SFLSIZ(0100)
      A                                      SFLPAG(0010)
      A                                      OVERLAY
      A  01                                  SFLDSP

@@ -92,7 +92,7 @@
            05  P-TEXT              PIC X(70).
       *-- PROMPTCTL subfile control
        01  PROMPTCTL-REC.
-           05  P-RCDNBR            PIC S9(4) COMP-4.
+           05  P-RCDNBR            PIC S9(4).
            05  P-FIELD             PIC X(10).
       *-- PROMPTKEYS overlay
        01  PROMPTKEYS-REC.
@@ -155,7 +155,7 @@
        01  WS-PV-COUNT             PIC S9(9) COMP-4 VALUE 0.
        01  WS-PV-FETCH             PIC X(1000).
        01  WS-PV-TABLE.
-           05  WS-PV-ENTRY OCCURS 1000 TIMES.
+           05  WS-PV-ENTRY OCCURS 99 TIMES.
                10  WS-PV-TEXT      PIC X(1000).
 
       *--------------------------------------------------------------
@@ -527,13 +527,11 @@
                        MOVE "Y" TO WS-INNER-DONE
 
                    WHEN WS-INDICATOR(4) = B"1"
-                       IF CURFLD = "CFG_BKND"
-                           MOVE X"F1" TO WS-IND-BYTES(20:1)
-                           MOVE "backend"    TO WS-IN-FIELD
-                           MOVE CFG-BKND     TO WS-IN-CURVAL
-                           PERFORM PROMPT-FIELD
-                           MOVE WS-RTN-SHORT TO CFG-BKND
-                       END-IF
+                       MOVE X"F1" TO WS-IND-BYTES(20:1)
+                       MOVE "backend"    TO WS-IN-FIELD
+                       MOVE CFG-BKND     TO WS-IN-CURVAL
+                       PERFORM PROMPT-FIELD
+                       MOVE WS-RTN-SHORT TO CFG-BKND
 
                    WHEN WS-INDICATOR(6) = B"1"
                        MOVE FUNCTION TRIM(CFG-BKND) TO WS-BACKEND
@@ -816,10 +814,13 @@
 
            MOVE "N" TO WS-SFL-DONE
            PERFORM UNTIL SFL-DONE
+               WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC
+                   FORMAT IS "PROMPTCTL"
+                   INDICATORS ARE WS-INDICATORS-AREA
                WRITE LLMDSPF-RECORD FROM PROMPTKEYS-REC
                    FORMAT IS "PROMPTKEYS"
                    INDICATORS ARE WS-INDICATORS-AREA
-               READ LLMDSPF INTO PROMPTCTL-REC FORMAT IS "PROMPTCTL"
+               READ LLMDSPF INTO PROMPTKEYS-REC FORMAT IS "PROMPTKEYS"
                    INDICATORS ARE WS-INDICATORS-AREA
 
                EVALUATE TRUE
@@ -853,7 +854,7 @@
            EVALUATE WS-IN-FIELD
                WHEN "backend"
                    EXEC SQL OPEN llmcobol_backend END-EXEC
-                   PERFORM UNTIL WS-PV-COUNT >= 1000
+                   PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
                        EXEC SQL FETCH llmcobol_backend
                            INTO :WS-PV-FETCH
@@ -867,7 +868,7 @@
                    EXEC SQL CLOSE llmcobol_backend END-EXEC
                WHEN "protocol"
                    EXEC SQL OPEN llmcobol_protocol END-EXEC
-                   PERFORM UNTIL WS-PV-COUNT >= 1000
+                   PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
                        EXEC SQL FETCH llmcobol_protocol
                            INTO :WS-PV-FETCH
@@ -881,7 +882,7 @@
                    EXEC SQL CLOSE llmcobol_protocol END-EXEC
                WHEN "port"
                    EXEC SQL OPEN llmcobol_port END-EXEC
-                   PERFORM UNTIL WS-PV-COUNT >= 1000
+                   PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
                        EXEC SQL FETCH llmcobol_port
                            INTO :WS-PV-FETCH
@@ -895,7 +896,7 @@
                    EXEC SQL CLOSE llmcobol_port END-EXEC
                WHEN "server"
                    EXEC SQL OPEN llmcobol_server END-EXEC
-                   PERFORM UNTIL WS-PV-COUNT >= 1000
+                   PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
                        EXEC SQL FETCH llmcobol_server
                            INTO :WS-PV-FETCH
@@ -909,7 +910,7 @@
                    EXEC SQL CLOSE llmcobol_server END-EXEC
                WHEN "model"
                    EXEC SQL OPEN llmcobol_model END-EXEC
-                   PERFORM UNTIL WS-PV-COUNT >= 1000
+                   PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
                        EXEC SQL FETCH llmcobol_model
                            INTO :WS-PV-FETCH
@@ -929,18 +930,19 @@
        CLEAR-SUBFILE.
            MOVE X"00" TO WS-IND-BYTES(1:1)
            MOVE X"00" TO WS-IND-BYTES(2:1)
+           MOVE X"00" TO WS-IND-BYTES(3:1)
            MOVE 0    TO WS-RRN1
+           MOVE 1    TO P-RCDNBR
            WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC FORMAT IS "PROMPTCTL"
                INDICATORS ARE WS-INDICATORS-AREA
-           MOVE X"F1" TO WS-IND-BYTES(1:1)
            MOVE X"F1" TO WS-IND-BYTES(2:1).
 
       *--------------------------------------------------------------
       * LOAD-SUBFILE
       *--------------------------------------------------------------
        LOAD-SUBFILE.
-           IF WS-PV-COUNT > 999
-               MOVE 999 TO WS-MIN-LEN
+           IF WS-PV-COUNT > 99
+               MOVE 99 TO WS-MIN-LEN
            ELSE
                MOVE WS-PV-COUNT TO WS-MIN-LEN
            END-IF
@@ -958,13 +960,15 @@
                ELSE
                    MOVE FUNCTION TRIM(P-VALUE) TO P-TEXT
                END-IF
-               MOVE WS-LOOP-IDX TO WS-RRN1
                WRITE LLMDSPF-RECORD FROM PROMPTSFL-REC
                    FORMAT IS "PROMPTSFL"
                    INDICATORS ARE WS-INDICATORS-AREA
                ADD 1 TO WS-LOOP-IDX
            END-PERFORM
-           IF WS-PV-COUNT <= 999
+           IF WS-PV-COUNT > 0
+               MOVE X"F1" TO WS-IND-BYTES(1:1)
+           END-IF
+           IF WS-PV-COUNT <= 99
                MOVE X"F1" TO WS-IND-BYTES(3:1)
            ELSE
                MOVE X"00" TO WS-IND-BYTES(3:1)
@@ -1039,12 +1043,14 @@
                END-EXEC
            END-IF
 
-           MOVE SQLCODE TO WS-SQLCODE-CHAR
-           STRING "SC=" FUNCTION TRIM(WS-SQLCODE-CHAR)
-                  " P=["  FUNCTION TRIM(DSP-PROMPT)  "]"
-                  " R=["  FUNCTION TRIM(WS-LLM-RESPONSE)  "]"
-               DELIMITED SIZE INTO RESPONSE
-           END-STRING.
+           IF SQLCODE NOT = 0
+               MOVE SQLCODE TO WS-SQLCODE-CHAR
+               STRING "SQL Error: " FUNCTION TRIM(WS-SQLCODE-CHAR)
+                   DELIMITED SIZE INTO WS-MSG-TEXT
+               PERFORM SEND-PROGRAM-MESSAGE
+           END-IF
+
+           MOVE WS-LLM-RESPONSE TO RESPONSE.
 
       *==============================================================
       * SEND-PROGRAM-MESSAGE  (QMHSNDPM)
