@@ -121,7 +121,7 @@ dspf:
 #-------------------------------------------------------------------------------
 cbl:
 	@printf "$(YELLOW)>>> Compiling $(CBL_NAME).SQLCBLLE ...$(NC)\n"
-	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); cl "ADDLIBLE DBSDK_V1" $(REDIRECT); system "CRTSQLCBLI OBJ($(TARGET_LIB)/$(CBL_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(CBL_NAME).SQLCBLLE'"'"') COMMIT(*NONE) DBGVIEW(*SOURCE) COMPILEOPT('"'"'ACTGRP(*NEW) TGTCCSID(*JOB)'"'"') USRPRF(*OWNER) RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) GENLVL(10)" $(REDIRECT)' && \
+	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); cl "ADDLIBLE DBSDK_V1" $(REDIRECT); system "CRTSQLCBLI OBJ($(TARGET_LIB)/$(CBL_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(CBL_NAME).SQLCBLLE'"'"') OPTION(*APOST) COMMIT(*NONE) DBGVIEW(*SOURCE) COMPILEOPT('"'"'ACTGRP(*NEW) TGTCCSID(*JOB)'"'"') USRPRF(*OWNER) RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) GENLVL(10)" $(REDIRECT)' && \
 		printf "$(GREEN)✓ $(CBL_NAME) compiled successfully$(NC)\n" || \
 		{ printf "$(RED)✗ CRTSQLCBLI failed for $(CBL_NAME)$(NC)\n"; exit 1; }
 
