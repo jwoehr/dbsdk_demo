@@ -1,3 +1,5 @@
+       PROCESS APOST.
+
        IDENTIFICATION DIVISION.
        PROGRAM-ID. LLMCOBOL.
       *=============================================================================
@@ -110,8 +112,8 @@
       * passed to WRITE/READ FORMAT … INDICATORS ARE WS-INDICATORS-AREA.
       * WS-IND-BYTES redefines the same storage as PIC X(99) so that
       * individual indicator bytes can be set/cleared via reference
-      * modification: X"F1" = on, X"00" = off.
-      * Read indicators back via WS-INDICATOR(n) = B"1" / B"0".
+      * modification: X'F1' = on, X'00' = off.
+      * Read indicators back via WS-INDICATOR(n) = B'1' / B'0'.
       *--------------------------------------------------------------
        01  WS-INDICATORS-AREA.
            05  WS-INDICATOR        PIC 1 INDICATOR 1
@@ -127,8 +129,8 @@
       *--------------------------------------------------------------
       * Exit flag — set when F3 is pressed to leave the main loop.
       *--------------------------------------------------------------
-       01  WS-EXIT-FLAG            PIC X(1) VALUE "N".
-           88  EXIT-REQUESTED      VALUE "Y".
+       01  WS-EXIT-FLAG            PIC X(1) VALUE 'N'.
+           88  EXIT-REQUESTED      VALUE 'Y'.
 
       *--------------------------------------------------------------
       * Global configuration variables
@@ -145,7 +147,7 @@
       *--------------------------------------------------------------
       * Subfile work fields
       *--------------------------------------------------------------
-       01  WS-RRN1                 PIC S9(4) COMP-4 VALUE 0.
+       01  WS-RRN1                 PIC 9(4) COMP-4 VALUE 0.
 
       *--------------------------------------------------------------
       * Prompt values: single-row fetch target plus storage array.
@@ -266,23 +268,23 @@
            END-EXEC
            EXEC SQL
                DECLARE llmcobol_protocol CURSOR FOR
-                   SELECT CAST(:WS-PROTOCOL AS VARCHAR(1000))
-                     FROM SYSIBM.SYSDUMMY1
+                   SELECT CAST(ollama_protocol AS VARCHAR(1000))
+                     FROM ollama_config_protocol
            END-EXEC
            EXEC SQL
                DECLARE llmcobol_port CURSOR FOR
-                   SELECT CAST(:WS-PORT-CHAR AS VARCHAR(1000))
-                     FROM SYSIBM.SYSDUMMY1
+                   SELECT CAST(CHAR(ollama_port) AS VARCHAR(1000))
+                     FROM ollama_config_port
            END-EXEC
            EXEC SQL
                DECLARE llmcobol_server CURSOR FOR
-                   SELECT CAST(:WS-SERVER AS VARCHAR(1000))
-                     FROM SYSIBM.SYSDUMMY1
+                   SELECT CAST(ollama_server AS VARCHAR(1000))
+                     FROM ollama_config_server
            END-EXEC
            EXEC SQL
                DECLARE llmcobol_model CURSOR FOR
-                   SELECT CAST(:WS-MODEL AS VARCHAR(1000))
-                     FROM SYSIBM.SYSDUMMY1
+                   SELECT CAST(ollama_model AS VARCHAR(1000))
+                     FROM ollama_config_model
            END-EXEC
 
            OPEN I-O LLMDSPF
@@ -297,7 +299,7 @@
 
                MOVE SPACES     TO WS-URL-WORK
                STRING FUNCTION TRIM(WS-PROTOCOL)
-                      "://"
+                      '://'
                    DELIMITED SIZE
                    INTO WS-URL-WORK
                END-STRING
@@ -305,7 +307,7 @@
                    MOVE WS-SERVER(1:50)  TO WS-SERVER-DISP
                    STRING FUNCTION TRIM(WS-URL-WORK)
                           WS-SERVER-DISP
-                          "[...]"
+                          '[...]'
                        DELIMITED SIZE
                        INTO WS-URL-WORK
                    END-STRING
@@ -319,7 +321,7 @@
                MOVE WS-PORT TO WS-STKE-VAL
                MOVE WS-STKE-VAL TO WS-PORT-EDIT
                STRING FUNCTION TRIM(WS-URL-WORK)
-                      ":"
+                      ':'
                       FUNCTION TRIM(WS-PORT-EDIT)
                    DELIMITED SIZE
                    INTO WS-URL-WORK
@@ -327,22 +329,24 @@
                MOVE WS-URL-WORK   TO RUN-URL
                MOVE WS-MODEL      TO RUN-MODL
 
-               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS "MSGSFLC"
+               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
                MOVE SPACES TO DSP-PROMPT
-               WRITE LLMDSPF-RECORD FROM RUNSCRN-REC FORMAT IS "RUNSCRN"
+               WRITE LLMDSPF-RECORD FROM RUNSCRN-REC FORMAT IS 'RUNSCRN'
                    INDICATORS ARE WS-INDICATORS-AREA
-               READ LLMDSPF INTO RUNSCRN-INPUT-REC FORMAT IS "RUNSCRN"
+               READ LLMDSPF INTO RUNSCRN-INPUT-REC FORMAT IS 'RUNSCRN'
                    INDICATORS ARE WS-INDICATORS-AREA
+                   AT END CONTINUE
+               END-READ
                MOVE IN-PROMPT   TO DSP-PROMPT
                MOVE IN-RESPONSE TO RESPONSE
                MOVE 1 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
 
                EVALUATE TRUE
-                   WHEN WS-INDICATOR(3) = B"1"
-                       MOVE "Y" TO WS-EXIT-FLAG
-                   WHEN WS-INDICATOR(4) = B"1"
+                   WHEN WS-INDICATOR(3) = B'1'
+                       MOVE 'Y' TO WS-EXIT-FLAG
+                   WHEN WS-INDICATOR(4) = B'1'
                        PERFORM EDIT-CONFIG
                    WHEN OTHER
                        MOVE SPACES TO WS-MSG-TEXT
@@ -357,7 +361,7 @@
       * FETCH-CONFIG
       *==============================================================
        FETCH-CONFIG.
-           IF WS-BACKEND = "openai_compatible"
+           IF WS-BACKEND = 'openai_compatible'
                EXEC SQL
                    SET :WS-PROTOCOL =
                        (VALUES dbsdk_v1.openai_compatible_getprotocol())
@@ -407,7 +411,7 @@
       * SET-FOR-JOB
       *==============================================================
        SET-FOR-JOB.
-           IF WS-BACKEND = "openai_compatible"
+           IF WS-BACKEND = 'openai_compatible'
                EXEC SQL
                    CALL dbsdk_v1.openai_compatible_setprotocolforjob(
                        TRIM(:WS-PROTOCOL))
@@ -450,14 +454,14 @@
                        TRIM(:WS-MODEL))
                END-EXEC
            END-IF
-           MOVE "Job defaults have been set." TO WS-MSG-TEXT
+           MOVE 'Job defaults have been set.' TO WS-MSG-TEXT
            PERFORM SEND-PROGRAM-MESSAGE.
 
       *==============================================================
       * SET-MY-DEFAULTS
       *==============================================================
        SET-MY-DEFAULTS.
-           IF WS-BACKEND = "openai_compatible"
+           IF WS-BACKEND = 'openai_compatible'
                EXEC SQL
                    CALL dbsdk_v1.openai_compatible_setprotocolforme(
                        TRIM(:WS-PROTOCOL))
@@ -474,7 +478,7 @@
                    CALL dbsdk_v1.openai_compatible_setmodelforme(
                        TRIM(:WS-MODEL))
                END-EXEC
-               IF WS-APIKEY NOT = "********"
+               IF WS-APIKEY NOT = '********'
                    EXEC SQL
                        CALL dbsdk_v1.openai_compatible_setapikeyforme(
                            TRIM(:WS-APIKEY))
@@ -508,44 +512,46 @@
       *==============================================================
        EDIT-CONFIG.
            MOVE WS-BACKEND TO CFG-BKND
-           MOVE "N" TO WS-INNER-DONE
+           MOVE 'N' TO WS-INNER-DONE
 
            PERFORM UNTIL INNER-DONE
-               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS "MSGSFLC"
+               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
-               WRITE LLMDSPF-RECORD FROM CFGSCRN-REC FORMAT IS "CFGSCRN"
+               WRITE LLMDSPF-RECORD FROM CFGSCRN-REC FORMAT IS 'CFGSCRN'
                    INDICATORS ARE WS-INDICATORS-AREA
-               READ LLMDSPF INTO CFGSCRN-REC FORMAT IS "CFGSCRN"
+               READ LLMDSPF INTO CFGSCRN-REC FORMAT IS 'CFGSCRN'
                    INDICATORS ARE WS-INDICATORS-AREA
+                   AT END CONTINUE
+               END-READ
                MOVE 2 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
-               MOVE X"00" TO WS-IND-BYTES(20:1)
+               MOVE X'00' TO WS-IND-BYTES(20:1)
 
                EVALUATE TRUE
-                   WHEN WS-INDICATOR(3) = B"1"
-                          OR WS-INDICATOR(12) = B"1"
-                       MOVE "Y" TO WS-INNER-DONE
+                   WHEN WS-INDICATOR(3) = B'1'
+                          OR WS-INDICATOR(12) = B'1'
+                       MOVE 'Y' TO WS-INNER-DONE
 
-                   WHEN WS-INDICATOR(4) = B"1"
-                       MOVE X"F1" TO WS-IND-BYTES(20:1)
-                       MOVE "backend"    TO WS-IN-FIELD
+                   WHEN WS-INDICATOR(4) = B'1'
+                       MOVE X'F1' TO WS-IND-BYTES(20:1)
+                       MOVE 'backend'    TO WS-IN-FIELD
                        MOVE CFG-BKND     TO WS-IN-CURVAL
                        PERFORM PROMPT-FIELD
                        MOVE WS-RTN-SHORT TO CFG-BKND
 
-                   WHEN WS-INDICATOR(6) = B"1"
+                   WHEN WS-INDICATOR(6) = B'1'
                        MOVE FUNCTION TRIM(CFG-BKND) TO WS-BACKEND
                        PERFORM FETCH-CONFIG
                        PERFORM SET-MY-DEFAULTS
-                       MOVE "User defaults have been updated."
+                       MOVE 'User defaults have been updated.'
                            TO WS-MSG-TEXT
                        PERFORM SEND-PROGRAM-MESSAGE
 
                    WHEN OTHER
                        MOVE FUNCTION TRIM(CFG-BKND) TO WS-BACKEND
                        PERFORM FETCH-CONFIG
-                       MOVE "Y" TO WS-INNER-DONE
-                       IF WS-BACKEND = "openai_compatible"
+                       MOVE 'Y' TO WS-INNER-DONE
+                       IF WS-BACKEND = 'openai_compatible'
                            PERFORM EDIT-OAI-CONFIG
                        ELSE
                            PERFORM EDIT-OLLAMA-CONFIG
@@ -565,56 +571,58 @@
            MOVE WS-PORT-EDIT TO OL-PORT
            MOVE WS-MODEL     TO OL-MODL
            MOVE WS-MODEL     TO OL-MODLH
-           MOVE "N" TO WS-INNER-DONE
+           MOVE 'N' TO WS-INNER-DONE
 
            PERFORM UNTIL INNER-DONE
-               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS "MSGSFLC"
+               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
                WRITE LLMDSPF-RECORD FROM OLLAMACFG-REC
-                   FORMAT IS "OLLAMACFG"
+                   FORMAT IS 'OLLAMACFG'
                    INDICATORS ARE WS-INDICATORS-AREA
-               READ LLMDSPF INTO OLLAMACFG-REC FORMAT IS "OLLAMACFG"
+               READ LLMDSPF INTO OLLAMACFG-REC FORMAT IS 'OLLAMACFG'
                    INDICATORS ARE WS-INDICATORS-AREA
+                   AT END CONTINUE
+               END-READ
                MOVE 2 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
-               MOVE X"00" TO WS-IND-BYTES(21:1)
-               MOVE X"00" TO WS-IND-BYTES(22:1)
-               MOVE X"00" TO WS-IND-BYTES(23:1)
-               MOVE X"00" TO WS-IND-BYTES(24:1)
+               MOVE X'00' TO WS-IND-BYTES(21:1)
+               MOVE X'00' TO WS-IND-BYTES(22:1)
+               MOVE X'00' TO WS-IND-BYTES(23:1)
+               MOVE X'00' TO WS-IND-BYTES(24:1)
 
                EVALUATE TRUE
-                   WHEN WS-INDICATOR(12) = B"1"
-                             OR WS-INDICATOR(3) = B"1"
-                       MOVE "Y" TO WS-INNER-DONE
+                   WHEN WS-INDICATOR(12) = B'1'
+                             OR WS-INDICATOR(3) = B'1'
+                       MOVE 'Y' TO WS-INNER-DONE
 
-                   WHEN WS-INDICATOR(4) = B"1"
+                   WHEN WS-INDICATOR(4) = B'1'
                        EVALUATE OL-FLD
-                           WHEN "OL_PROT"
-                               MOVE X"F1" TO WS-IND-BYTES(21:1)
-                               MOVE "protocol"   TO WS-IN-FIELD
+                           WHEN 'OL_PROT'
+                               MOVE X'F1' TO WS-IND-BYTES(21:1)
+                               MOVE 'protocol'   TO WS-IN-FIELD
                                MOVE OL-PROT      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OL-PROT
                                MOVE WS-RTN-LONG  TO WS-PROTOCOL
-                           WHEN "OL_SRVR"
-                               MOVE X"F1" TO WS-IND-BYTES(22:1)
-                               MOVE "server"     TO WS-IN-FIELD
+                           WHEN 'OL_SRVR'
+                               MOVE X'F1' TO WS-IND-BYTES(22:1)
+                               MOVE 'server'     TO WS-IN-FIELD
                                MOVE OL-SRVR      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OL-SRVR
                                MOVE WS-RTN-LONG  TO OL-SRVRH
                                MOVE WS-RTN-LONG  TO WS-SERVER
-                           WHEN "OL_PORT"
-                               MOVE X"F1" TO WS-IND-BYTES(23:1)
-                               MOVE "port"       TO WS-IN-FIELD
+                           WHEN 'OL_PORT'
+                               MOVE X'F1' TO WS-IND-BYTES(23:1)
+                               MOVE 'port'       TO WS-IN-FIELD
                                MOVE OL-PORT      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OL-PORT
                                MOVE FUNCTION NUMVAL(WS-RTN-LONG)
                                    TO WS-PORT
-                           WHEN "OL_MODL"
-                               MOVE X"F1" TO WS-IND-BYTES(24:1)
-                               MOVE "model"      TO WS-IN-FIELD
+                           WHEN 'OL_MODL'
+                               MOVE X'F1' TO WS-IND-BYTES(24:1)
+                               MOVE 'model'      TO WS-IN-FIELD
                                MOVE OL-MODL      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OL-MODL
@@ -622,11 +630,11 @@
                                MOVE WS-RTN-LONG  TO WS-MODEL
                        END-EVALUATE
 
-                   WHEN WS-INDICATOR(6) = B"1"
-                       IF WS-INDICATOR(32) = B"1"
+                   WHEN WS-INDICATOR(6) = B'1'
+                       IF WS-INDICATOR(32) = B'1'
                            MOVE OL-SRVR TO OL-SRVRH
                        END-IF
-                       IF WS-INDICATOR(34) = B"1"
+                       IF WS-INDICATOR(34) = B'1'
                            MOVE OL-MODL TO OL-MODLH
                        END-IF
                        MOVE OL-PROT  TO WS-PROTOCOL
@@ -634,16 +642,16 @@
                        MOVE OL-MODLH TO WS-MODEL
                        MOVE FUNCTION NUMVAL(OL-PORT) TO WS-PORT
                        PERFORM SET-MY-DEFAULTS
-                       MOVE "User defaults have been updated."
+                       MOVE 'User defaults have been updated.'
                            TO WS-MSG-TEXT
                        PERFORM SEND-PROGRAM-MESSAGE
 
                    WHEN OTHER
-                       MOVE "Y" TO WS-INNER-DONE
-                       IF WS-INDICATOR(32) = B"1"
+                       MOVE 'Y' TO WS-INNER-DONE
+                       IF WS-INDICATOR(32) = B'1'
                            MOVE OL-SRVR TO OL-SRVRH
                        END-IF
-                       IF WS-INDICATOR(34) = B"1"
+                       IF WS-INDICATOR(34) = B'1'
                            MOVE OL-MODL TO OL-MODLH
                        END-IF
                        MOVE OL-PROT  TO WS-PROTOCOL
@@ -669,64 +677,66 @@
            MOVE WS-BASEPATH  TO OA-PATH
 
            IF FUNCTION TRIM(WS-APIKEY) NOT = SPACES
-               MOVE "********"  TO OA-KEY
+               MOVE '********'  TO OA-KEY
                MOVE WS-APIKEY   TO OA-KEYH
            ELSE
                MOVE SPACES TO OA-KEY
                MOVE SPACES TO OA-KEYH
            END-IF
 
-           MOVE "N" TO WS-INNER-DONE
+           MOVE 'N' TO WS-INNER-DONE
 
            PERFORM UNTIL INNER-DONE
-               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS "MSGSFLC"
+               WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
-               WRITE LLMDSPF-RECORD FROM OAICFG-REC FORMAT IS "OAICFG"
+               WRITE LLMDSPF-RECORD FROM OAICFG-REC FORMAT IS 'OAICFG'
                    INDICATORS ARE WS-INDICATORS-AREA
-               READ LLMDSPF INTO OAICFG-REC FORMAT IS "OAICFG"
+               READ LLMDSPF INTO OAICFG-REC FORMAT IS 'OAICFG'
                    INDICATORS ARE WS-INDICATORS-AREA
+                   AT END CONTINUE
+               END-READ
                MOVE 2 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
-               MOVE X"00" TO WS-IND-BYTES(21:1)
-               MOVE X"00" TO WS-IND-BYTES(22:1)
-               MOVE X"00" TO WS-IND-BYTES(23:1)
-               MOVE X"00" TO WS-IND-BYTES(24:1)
-               MOVE X"00" TO WS-IND-BYTES(25:1)
-               MOVE X"00" TO WS-IND-BYTES(26:1)
+               MOVE X'00' TO WS-IND-BYTES(21:1)
+               MOVE X'00' TO WS-IND-BYTES(22:1)
+               MOVE X'00' TO WS-IND-BYTES(23:1)
+               MOVE X'00' TO WS-IND-BYTES(24:1)
+               MOVE X'00' TO WS-IND-BYTES(25:1)
+               MOVE X'00' TO WS-IND-BYTES(26:1)
 
                EVALUATE TRUE
-                   WHEN WS-INDICATOR(12) = B"1"
-                             OR WS-INDICATOR(3) = B"1"
-                       MOVE "Y" TO WS-INNER-DONE
+                   WHEN WS-INDICATOR(12) = B'1'
+                             OR WS-INDICATOR(3) = B'1'
+                       MOVE 'Y' TO WS-INNER-DONE
 
-                   WHEN WS-INDICATOR(4) = B"1"
+                   WHEN WS-INDICATOR(4) = B'1'
                        EVALUATE OA-FLD
-                           WHEN "OA_PROT"
-                               MOVE X"F1" TO WS-IND-BYTES(21:1)
-                               MOVE "protocol"   TO WS-IN-FIELD
+                           WHEN 'OA_PROT'
+                               MOVE X'F1' TO WS-IND-BYTES(21:1)
+                               MOVE 'protocol'   TO WS-IN-FIELD
                                MOVE OA-PROT      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OA-PROT
                                MOVE WS-RTN-LONG  TO WS-PROTOCOL
-                           WHEN "OA_SRVR"
-                               MOVE X"F1" TO WS-IND-BYTES(22:1)
-                               MOVE "server"     TO WS-IN-FIELD
+                           WHEN 'OA_SRVR'
+                               MOVE X'F1' TO WS-IND-BYTES(22:1)
+                               MOVE 'server'     TO WS-IN-FIELD
                                MOVE OA-SRVR      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OA-SRVR
                                MOVE WS-RTN-LONG  TO OA-SRVRH
                                MOVE WS-RTN-LONG  TO WS-SERVER
-                           WHEN "OA_PORT"
-                               MOVE X"F1" TO WS-IND-BYTES(23:1)
-                               MOVE "port"       TO WS-IN-FIELD
+                           WHEN 'OA_PORT'
+                               MOVE X'F1' TO WS-IND-BYTES(23:1)
+                               MOVE 'port'       TO WS-IN-FIELD
                                MOVE OA-PORT      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OA-PORT
                                MOVE FUNCTION NUMVAL(WS-RTN-LONG)
                                    TO WS-PORT
-                           WHEN "OA_MODL"
-                               MOVE X"F1" TO WS-IND-BYTES(24:1)
-                               MOVE "model"      TO WS-IN-FIELD
+                           WHEN 'OA_MODL'
+                               MOVE X'F1' TO WS-IND-BYTES(24:1)
+                               MOVE 'model'      TO WS-IN-FIELD
                                MOVE OA-MODL      TO WS-IN-CURVAL
                                PERFORM PROMPT-FIELD
                                MOVE WS-RTN-SHORT TO OA-MODL
@@ -734,18 +744,18 @@
                                MOVE WS-RTN-LONG  TO WS-MODEL
                        END-EVALUATE
 
-                   WHEN WS-INDICATOR(6) = B"1"
-                       IF WS-INDICATOR(32) = B"1"
+                   WHEN WS-INDICATOR(6) = B'1'
+                       IF WS-INDICATOR(32) = B'1'
                            MOVE OA-SRVR TO OA-SRVRH
                        END-IF
-                       IF WS-INDICATOR(34) = B"1"
+                       IF WS-INDICATOR(34) = B'1'
                            MOVE OA-MODL TO OA-MODLH
                        END-IF
                        MOVE OA-PROT  TO WS-PROTOCOL
                        MOVE OA-SRVRH TO WS-SERVER
                        MOVE OA-MODLH TO WS-MODEL
                        MOVE OA-PATH  TO WS-BASEPATH
-                       IF FUNCTION TRIM(OA-KEY) = "********"
+                       IF FUNCTION TRIM(OA-KEY) = '********'
                            MOVE OA-KEYH TO WS-APIKEY
                        ELSE
                            MOVE FUNCTION TRIM(OA-KEY) TO WS-APIKEY
@@ -753,23 +763,23 @@
                        END-IF
                        MOVE FUNCTION NUMVAL(OA-PORT) TO WS-PORT
                        PERFORM SET-MY-DEFAULTS
-                       MOVE "User defaults have been updated."
+                       MOVE 'User defaults have been updated.'
                            TO WS-MSG-TEXT
                        PERFORM SEND-PROGRAM-MESSAGE
 
                    WHEN OTHER
-                       MOVE "Y" TO WS-INNER-DONE
-                       IF WS-INDICATOR(32) = B"1"
+                       MOVE 'Y' TO WS-INNER-DONE
+                       IF WS-INDICATOR(32) = B'1'
                            MOVE OA-SRVR TO OA-SRVRH
                        END-IF
-                       IF WS-INDICATOR(34) = B"1"
+                       IF WS-INDICATOR(34) = B'1'
                            MOVE OA-MODL TO OA-MODLH
                        END-IF
                        MOVE OA-PROT  TO WS-PROTOCOL
                        MOVE OA-SRVRH TO WS-SERVER
                        MOVE OA-MODLH TO WS-MODEL
                        MOVE OA-PATH  TO WS-BASEPATH
-                       IF FUNCTION TRIM(OA-KEY) = "********"
+                       IF FUNCTION TRIM(OA-KEY) = '********'
                            MOVE OA-KEYH TO WS-APIKEY
                        ELSE
                            MOVE FUNCTION TRIM(OA-KEY) TO WS-APIKEY
@@ -788,21 +798,21 @@
       *==============================================================
        PROMPT-FIELD.
            EVALUATE WS-IN-FIELD
-               WHEN "backend"
+               WHEN 'backend'
                    MOVE WS-IN-CURVAL TO WS-RTN-SHORT
                    MOVE WS-BACKEND   TO WS-RTN-LONG
-               WHEN "protocol"
+               WHEN 'protocol'
                    MOVE WS-IN-CURVAL  TO WS-RTN-SHORT
                    MOVE WS-PROTOCOL   TO WS-RTN-LONG
-               WHEN "port"
+               WHEN 'port'
                    MOVE WS-IN-CURVAL  TO WS-RTN-SHORT
                    MOVE WS-PORT       TO WS-STKE-VAL
                    MOVE WS-STKE-VAL   TO WS-PORT-EDIT
                    MOVE WS-PORT-EDIT  TO WS-RTN-LONG
-               WHEN "server"
+               WHEN 'server'
                    MOVE WS-IN-CURVAL  TO WS-RTN-SHORT
                    MOVE WS-SERVER     TO WS-RTN-LONG
-               WHEN "model"
+               WHEN 'model'
                    MOVE WS-IN-CURVAL  TO WS-RTN-SHORT
                    MOVE WS-MODEL      TO WS-RTN-LONG
            END-EVALUATE
@@ -812,43 +822,42 @@
            PERFORM CLEAR-SUBFILE
            PERFORM LOAD-SUBFILE
 
-           MOVE "N" TO WS-SFL-DONE
+           MOVE 'N' TO WS-SFL-DONE
            PERFORM UNTIL SFL-DONE
-               MOVE X"F1" TO WS-IND-BYTES(1:1)
-               MOVE X"F1" TO WS-IND-BYTES(2:1)
+               MOVE X'F1' TO WS-IND-BYTES(1:1)
+               MOVE X'F1' TO WS-IND-BYTES(2:1)
                IF WS-PV-COUNT <= 99
-                   MOVE X"F1" TO WS-IND-BYTES(3:1)
+                   MOVE X'F1' TO WS-IND-BYTES(3:1)
                ELSE
-                   MOVE X"00" TO WS-IND-BYTES(3:1)
+                   MOVE X'00' TO WS-IND-BYTES(3:1)
                END-IF
-               WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC
-                   FORMAT IS "PROMPTCTL"
-                   INDICATORS ARE WS-INDICATORS-AREA
                WRITE LLMDSPF-RECORD FROM PROMPTKEYS-REC
-                   FORMAT IS "PROMPTKEYS"
+                   FORMAT IS 'PROMPTKEYS'
                    INDICATORS ARE WS-INDICATORS-AREA
-               READ LLMDSPF INTO PROMPTKEYS-REC FORMAT IS "PROMPTKEYS"
+               WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC
+                   FORMAT IS 'PROMPTCTL'
                    INDICATORS ARE WS-INDICATORS-AREA
+               READ LLMDSPF INTO PROMPTCTL-REC FORMAT IS 'PROMPTCTL'
+                   INDICATORS ARE WS-INDICATORS-AREA
+                   AT END CONTINUE
+               END-READ
 
                EVALUATE TRUE
-                   WHEN WS-INDICATOR(3) = B"1"
-                             OR WS-INDICATOR(12) = B"1"
-                       MOVE "Y" TO WS-SFL-DONE
+                   WHEN WS-INDICATOR(3) = B'1'
+                             OR WS-INDICATOR(12) = B'1'
+                       MOVE 'Y' TO WS-SFL-DONE
 
                    WHEN OTHER
-                       MOVE 1 TO WS-LOOP-IDX
-                       PERFORM UNTIL WS-LOOP-IDX > WS-PV-COUNT
-                           READ LLMDSPF INTO PROMPTSFL-REC
-                               FORMAT IS "PROMPTSFL"
-                               INDICATORS ARE WS-INDICATORS-AREA
-                           IF P-SELECT = "1"
-                               MOVE P-TEXT  TO WS-RTN-SHORT
-                               MOVE P-VALUE TO WS-RTN-LONG
-                               MOVE "Y" TO WS-SFL-DONE
-                               MOVE WS-PV-COUNT TO WS-LOOP-IDX
+                       IF P-RCDNBR >= 1 AND P-RCDNBR <= WS-PV-COUNT
+                           MOVE WS-PV-TEXT(P-RCDNBR) TO WS-RTN-SHORT
+                           MOVE WS-PV-TEXT(P-RCDNBR) TO WS-RTN-LONG
+                       ELSE
+                           IF WS-PV-COUNT > 0
+                               MOVE WS-PV-TEXT(1) TO WS-RTN-SHORT
+                               MOVE WS-PV-TEXT(1) TO WS-RTN-LONG
                            END-IF
-                           ADD 1 TO WS-LOOP-IDX
-                       END-PERFORM
+                       END-IF
+                       MOVE 'Y' TO WS-SFL-DONE
                END-EVALUATE
            END-PERFORM.
 
@@ -859,21 +868,11 @@
        LOAD-PROMPT-VALUES.
            MOVE 0 TO WS-PV-COUNT
            EVALUATE WS-IN-FIELD
-               WHEN "backend"
-                   EXEC SQL OPEN llmcobol_backend END-EXEC
-                   PERFORM UNTIL WS-PV-COUNT >= 99
-                                 OR SQLCODE = 100
-                       EXEC SQL FETCH llmcobol_backend
-                           INTO :WS-PV-FETCH
-                       END-EXEC
-                       IF SQLCODE = 0
-                           ADD 1 TO WS-PV-COUNT
-                           MOVE WS-PV-FETCH
-                               TO WS-PV-TEXT(WS-PV-COUNT)
-                       END-IF
-                   END-PERFORM
-                   EXEC SQL CLOSE llmcobol_backend END-EXEC
-               WHEN "protocol"
+               WHEN 'backend'
+                   MOVE 2 TO WS-PV-COUNT
+                   MOVE 'ollama'            TO WS-PV-TEXT(1)
+                   MOVE 'openai_compatible' TO WS-PV-TEXT(2)
+               WHEN 'protocol'
                    EXEC SQL OPEN llmcobol_protocol END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
@@ -887,7 +886,7 @@
                        END-IF
                    END-PERFORM
                    EXEC SQL CLOSE llmcobol_protocol END-EXEC
-               WHEN "port"
+               WHEN 'port'
                    EXEC SQL OPEN llmcobol_port END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
@@ -901,7 +900,7 @@
                        END-IF
                    END-PERFORM
                    EXEC SQL CLOSE llmcobol_port END-EXEC
-               WHEN "server"
+               WHEN 'server'
                    EXEC SQL OPEN llmcobol_server END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
@@ -915,7 +914,7 @@
                        END-IF
                    END-PERFORM
                    EXEC SQL CLOSE llmcobol_server END-EXEC
-               WHEN "model"
+               WHEN 'model'
                    EXEC SQL OPEN llmcobol_model END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
                                  OR SQLCODE = 100
@@ -935,14 +934,14 @@
       * CLEAR-SUBFILE
       *--------------------------------------------------------------
        CLEAR-SUBFILE.
-           MOVE X"00" TO WS-IND-BYTES(1:1)
-           MOVE X"00" TO WS-IND-BYTES(2:1)
-           MOVE X"00" TO WS-IND-BYTES(3:1)
+           MOVE X'00' TO WS-IND-BYTES(1:1)
+           MOVE X'00' TO WS-IND-BYTES(2:1)
+           MOVE X'00' TO WS-IND-BYTES(3:1)
            MOVE 0    TO WS-RRN1
            MOVE 1    TO P-RCDNBR
-           WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC FORMAT IS "PROMPTCTL"
+           WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC FORMAT IS 'PROMPTCTL'
                INDICATORS ARE WS-INDICATORS-AREA
-           MOVE X"F1" TO WS-IND-BYTES(2:1).
+           MOVE X'F1' TO WS-IND-BYTES(2:1).
 
       *--------------------------------------------------------------
       * LOAD-SUBFILE
@@ -963,22 +962,23 @@
                    FUNCTION TRIM(P-TEXT))  TO WS-TEXT-LEN
                IF WS-VAL-LEN > 70 AND WS-TEXT-LEN >= 4
                    MOVE P-VALUE(1:67) TO P-TEXT(1:67)
-                   MOVE "..."         TO P-TEXT(68:3)
+                   MOVE '...'         TO P-TEXT(68:3)
                ELSE
                    MOVE FUNCTION TRIM(P-VALUE) TO P-TEXT
                END-IF
+               MOVE WS-LOOP-IDX TO WS-RRN1
                WRITE LLMDSPF-RECORD FROM PROMPTSFL-REC
-                   FORMAT IS "PROMPTSFL"
+                   FORMAT IS 'PROMPTSFL'
                    INDICATORS ARE WS-INDICATORS-AREA
                ADD 1 TO WS-LOOP-IDX
            END-PERFORM
            IF WS-PV-COUNT > 0
-               MOVE X"F1" TO WS-IND-BYTES(1:1)
+               MOVE X'F1' TO WS-IND-BYTES(1:1)
            END-IF
            IF WS-PV-COUNT <= 99
-               MOVE X"F1" TO WS-IND-BYTES(3:1)
+               MOVE X'F1' TO WS-IND-BYTES(3:1)
            ELSE
-               MOVE X"00" TO WS-IND-BYTES(3:1)
+               MOVE X'00' TO WS-IND-BYTES(3:1)
            END-IF
            MOVE 1 TO P-RCDNBR.
 
@@ -986,7 +986,7 @@
       * CALL-LLM
       *==============================================================
        CALL-LLM.
-           IF WS-BACKEND = "openai_compatible"
+           IF WS-BACKEND = 'openai_compatible'
                EXEC SQL
                    SET :WS-L-PROTOCOL = (
                        VALUES dbsdk_v1.openai_compatible_getprotocol())
@@ -1052,7 +1052,7 @@
 
            IF SQLCODE NOT = 0
                MOVE SQLCODE TO WS-SQLCODE-CHAR
-               STRING "SQL Error: " FUNCTION TRIM(WS-SQLCODE-CHAR)
+               STRING 'SQL Error: ' FUNCTION TRIM(WS-SQLCODE-CHAR)
                    DELIMITED SIZE INTO WS-MSG-TEXT
                PERFORM SEND-PROGRAM-MESSAGE
            END-IF
@@ -1071,7 +1071,7 @@
            IF WS-SNDPM-MSGLEN = 0
                EXIT PARAGRAPH
            END-IF
-           CALL "QMHSNDPM" USING
+           CALL 'QMHSNDPM' USING
                WS-SNDPM-MSGID
                WS-SNDPM-MSGFILE
                WS-MSG-TEXT
@@ -1088,7 +1088,7 @@
       *==============================================================
        CLEAR-PROGRAM-MESSAGES.
            MOVE WS-STKE-VAL TO WS-RMVPM-STKC
-           CALL "QMHRMVPM" USING
+           CALL 'QMHRMVPM' USING
                WS-RMVPM-STKE
                WS-RMVPM-STKC
                WS-RMVPM-MSGKEY
