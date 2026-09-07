@@ -28,7 +28,8 @@
            SELECT LLMDSPF
                ASSIGN TO WORKSTATION-LLMDSPF-SI
                ORGANIZATION IS TRANSACTION
-               ACCESS MODE IS SEQUENTIAL
+               ACCESS MODE IS DYNAMIC
+               RELATIVE KEY IS WS-RRN1
                FILE STATUS IS WS-DSPF-FS1.
 
        DATA DIVISION.
@@ -534,6 +535,9 @@
 
                    WHEN WS-INDICATOR(4) = B'1'
                        MOVE X'F1' TO WS-IND-BYTES(20:1)
+                       MOVE X'00' TO WS-IND-BYTES(3:1)
+                       MOVE X'00' TO WS-IND-BYTES(4:1)
+                       MOVE X'00' TO WS-IND-BYTES(12:1)
                        MOVE 'backend'    TO WS-IN-FIELD
                        MOVE CFG-BKND     TO WS-IN-CURVAL
                        PERFORM PROMPT-FIELD
@@ -827,9 +831,9 @@
                MOVE X'F1' TO WS-IND-BYTES(1:1)
                MOVE X'F1' TO WS-IND-BYTES(2:1)
                IF WS-PV-COUNT <= 99
-                   MOVE X'F1' TO WS-IND-BYTES(3:1)
+                   MOVE X'F1' TO WS-IND-BYTES(40:1)
                ELSE
-                   MOVE X'00' TO WS-IND-BYTES(3:1)
+                   MOVE X'00' TO WS-IND-BYTES(40:1)
                END-IF
                WRITE LLMDSPF-RECORD FROM PROMPTKEYS-REC
                    FORMAT IS 'PROMPTKEYS'
@@ -848,16 +852,38 @@
                        MOVE 'Y' TO WS-SFL-DONE
 
                    WHEN OTHER
-                       IF P-RCDNBR >= 1 AND P-RCDNBR <= WS-PV-COUNT
-                           MOVE WS-PV-TEXT(P-RCDNBR) TO WS-RTN-SHORT
-                           MOVE WS-PV-TEXT(P-RCDNBR) TO WS-RTN-LONG
-                       ELSE
-                           IF WS-PV-COUNT > 0
-                               MOVE WS-PV-TEXT(1) TO WS-RTN-SHORT
-                               MOVE WS-PV-TEXT(1) TO WS-RTN-LONG
+                       MOVE 1 TO WS-RRN1
+                       PERFORM UNTIL WS-RRN1 > WS-PV-COUNT
+                           READ LLMDSPF RECORD
+                               INTO PROMPTSFL-REC
+                               FORMAT IS 'PROMPTSFL'
+                               INDICATORS ARE WS-INDICATORS-AREA
+                               AT END CONTINUE
+                           END-READ
+                           IF P-SELECT NOT = SPACES
+                               MOVE P-TEXT  TO WS-RTN-SHORT
+                               MOVE P-VALUE TO WS-RTN-LONG
+                               MOVE 'Y'     TO WS-SFL-DONE
+                               MOVE WS-PV-COUNT TO WS-RRN1
                            END-IF
+                           ADD 1 TO WS-RRN1
+                       END-PERFORM
+                       IF WS-SFL-DONE NOT = 'Y'
+                           IF P-RCDNBR >= 1 AND P-RCDNBR <= WS-PV-COUNT
+                               MOVE WS-PV-TEXT(P-RCDNBR)
+                                   TO WS-RTN-SHORT
+                               MOVE WS-PV-TEXT(P-RCDNBR)
+                                   TO WS-RTN-LONG
+                           ELSE
+                               IF WS-PV-COUNT > 0
+                                   MOVE WS-PV-TEXT(1)
+                                       TO WS-RTN-SHORT
+                                   MOVE WS-PV-TEXT(1)
+                                       TO WS-RTN-LONG
+                               END-IF
+                           END-IF
+                           MOVE 'Y' TO WS-SFL-DONE
                        END-IF
-                       MOVE 'Y' TO WS-SFL-DONE
                END-EVALUATE
            END-PERFORM.
 
@@ -976,9 +1002,9 @@
                MOVE X'F1' TO WS-IND-BYTES(1:1)
            END-IF
            IF WS-PV-COUNT <= 99
-               MOVE X'F1' TO WS-IND-BYTES(3:1)
+               MOVE X'F1' TO WS-IND-BYTES(40:1)
            ELSE
-               MOVE X'00' TO WS-IND-BYTES(3:1)
+               MOVE X'00' TO WS-IND-BYTES(40:1)
            END-IF
            MOVE 1 TO P-RCDNBR.
 

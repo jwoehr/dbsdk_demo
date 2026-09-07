@@ -177,7 +177,7 @@
      A  01                                  SFLDSP
      A  02                                  SFLDSPCTL
      A N02                                  SFLCLR
-     A N03                                  SFLEND(*MORE)
+     A  40                                  SFLEND(*MORE)
      A            P_RCDNBR       4S 0H      SFLRCDNBR
      A                                  2  2'Prompt for'
      A                                      COLOR(WHT)
