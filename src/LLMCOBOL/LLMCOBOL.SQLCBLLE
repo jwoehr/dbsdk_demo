@@ -537,8 +537,6 @@
                        EVALUATE CURFLD
                            WHEN 'CFG_BKND'
                            WHEN 'CFG_BKND  '
-                           WHEN 'CFG-BKND'
-                           WHEN 'CFG-BKND  '
                                MOVE X'F1' TO WS-IND-BYTES(20:1)
                                MOVE X'F0' TO WS-IND-BYTES(3:1)
                                MOVE X'F0' TO WS-IND-BYTES(4:1)
@@ -839,7 +837,11 @@
 
            MOVE 'N' TO WS-SFL-DONE
            PERFORM UNTIL SFL-DONE
-               MOVE X'F1' TO WS-IND-BYTES(1:1)
+               IF WS-PV-COUNT > 0
+                   MOVE X'F1' TO WS-IND-BYTES(1:1)
+               ELSE
+                   MOVE X'F0' TO WS-IND-BYTES(1:1)
+               END-IF
                MOVE X'F1' TO WS-IND-BYTES(2:1)
                IF WS-PV-COUNT <= 99
                    MOVE X'F1' TO WS-IND-BYTES(40:1)
