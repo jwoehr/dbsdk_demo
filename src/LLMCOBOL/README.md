@@ -10,12 +10,6 @@
 
 ---
 
-## ⚠️ WARNING ⚠️
-
-**LLMCOBOL currently has a serious flaw that can cause it to recurse uncontrollably. It should NOT be used until the author fixes this issue!**
-
----
-
 ## Purpose
 
 `LLMCOBOL` is a demonstration project for the

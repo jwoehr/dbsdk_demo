@@ -166,6 +166,9 @@
       *--------------------------------------------------------------
        01  WS-FIRST-TIME           PIC X(1) VALUE 'Y'.
            88  IS-FIRST-TIME       VALUE 'Y'.
+       01  WS-CFG-DONE             PIC X(1) VALUE 'N'.
+           88  CFG-DONE            VALUE 'Y'.
+           88  CFG-NOT-DONE        VALUE 'N'.
        01  WS-INNER-DONE           PIC X(1) VALUE 'N'.
            88  INNER-DONE          VALUE 'Y'.
            88  INNER-NOT-DONE      VALUE 'N'.
@@ -205,7 +208,7 @@
        01  WS-SNDPM-STKE           PIC X(10) VALUE 'LLMCOBOL'.
        01  WS-SNDPM-STKC           PIC S9(9) COMP-4 VALUE 0.
        01  WS-SNDPM-MSGLEN         PIC S9(9) COMP-4.
-       01  WS-RMVPM-STKE           PIC X(10) VALUE '*'.
+       01  WS-RMVPM-STKE           PIC X(10) VALUE 'LLMCOBOL'.
        01  WS-RMVPM-STKC           PIC S9(9) COMP-4.
        01  WS-RMVPM-MSGKEY         PIC X(4)  VALUE '    '.
        01  WS-RMVPM-MSGSEL         PIC X(10) VALUE '*ALL'.
@@ -341,7 +344,6 @@
                END-READ
                MOVE IN-PROMPT   TO DSP-PROMPT
                MOVE IN-RESPONSE TO RESPONSE
-               MOVE 1 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
 
                EVALUATE TRUE
@@ -513,9 +515,9 @@
       *==============================================================
        EDIT-CONFIG.
            MOVE WS-BACKEND TO CFG-BKND
-           MOVE 'N' TO WS-INNER-DONE
+           MOVE 'N' TO WS-CFG-DONE
 
-           PERFORM UNTIL INNER-DONE
+           PERFORM UNTIL CFG-DONE
                WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
                WRITE LLMDSPF-RECORD FROM CFGSCRN-REC FORMAT IS 'CFGSCRN'
@@ -524,14 +526,13 @@
                    INDICATORS ARE WS-INDICATORS-AREA
                    AT END CONTINUE
                END-READ
-               MOVE 2 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
                MOVE X'F0' TO WS-IND-BYTES(20:1)
 
                EVALUATE TRUE
                    WHEN WS-INDICATOR(3) = B'1'
-                          OR WS-INDICATOR(12) = B'1'
-                       MOVE 'Y' TO WS-INNER-DONE
+                             OR WS-INDICATOR(12) = B'1'
+                       MOVE 'Y' TO WS-CFG-DONE
 
                    WHEN WS-INDICATOR(4) = B'1'
                        EVALUATE CURFLD
@@ -563,7 +564,7 @@
                    WHEN OTHER
                        MOVE FUNCTION TRIM(CFG-BKND) TO WS-BACKEND
                        PERFORM FETCH-CONFIG
-                       MOVE 'Y' TO WS-INNER-DONE
+                       MOVE 'Y' TO WS-CFG-DONE
                        IF WS-BACKEND = 'openai_compatible'
                            PERFORM EDIT-OAI-CONFIG
                        ELSE
@@ -596,7 +597,6 @@
                    INDICATORS ARE WS-INDICATORS-AREA
                    AT END CONTINUE
                END-READ
-               MOVE 2 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
                MOVE X'F0' TO WS-IND-BYTES(21:1)
                MOVE X'F0' TO WS-IND-BYTES(22:1)
@@ -708,7 +708,6 @@
                    INDICATORS ARE WS-INDICATORS-AREA
                    AT END CONTINUE
                END-READ
-               MOVE 2 TO WS-STKE-VAL
                PERFORM CLEAR-PROGRAM-MESSAGES
                MOVE X'F0' TO WS-IND-BYTES(21:1)
                MOVE X'F0' TO WS-IND-BYTES(22:1)
@@ -914,7 +913,7 @@
                WHEN 'protocol'
                    EXEC SQL OPEN llmcobol_protocol END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
-                                 OR SQLCODE = 100
+                                 OR SQLCODE NOT = 0
                        EXEC SQL FETCH llmcobol_protocol
                            INTO :WS-PV-FETCH
                        END-EXEC
@@ -928,7 +927,7 @@
                WHEN 'port'
                    EXEC SQL OPEN llmcobol_port END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
-                                 OR SQLCODE = 100
+                                 OR SQLCODE NOT = 0
                        EXEC SQL FETCH llmcobol_port
                            INTO :WS-PV-FETCH
                        END-EXEC
@@ -942,7 +941,7 @@
                WHEN 'server'
                    EXEC SQL OPEN llmcobol_server END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
-                                 OR SQLCODE = 100
+                                 OR SQLCODE NOT = 0
                        EXEC SQL FETCH llmcobol_server
                            INTO :WS-PV-FETCH
                        END-EXEC
@@ -956,7 +955,7 @@
                WHEN 'model'
                    EXEC SQL OPEN llmcobol_model END-EXEC
                    PERFORM UNTIL WS-PV-COUNT >= 99
-                                 OR SQLCODE = 100
+                                 OR SQLCODE NOT = 0
                        EXEC SQL FETCH llmcobol_model
                            INTO :WS-PV-FETCH
                        END-EXEC
@@ -1123,10 +1122,9 @@
 
       *==============================================================
       * CLEAR-PROGRAM-MESSAGES  (QMHRMVPM)
-      * WS-STKE-VAL must be set to the stack entry count before PERFORM.
       *==============================================================
        CLEAR-PROGRAM-MESSAGES.
-           MOVE WS-STKE-VAL TO WS-RMVPM-STKC
+           MOVE 0 TO WS-RMVPM-STKC
            CALL 'QMHRMVPM' USING
                WS-RMVPM-STKE
                WS-RMVPM-STKC
