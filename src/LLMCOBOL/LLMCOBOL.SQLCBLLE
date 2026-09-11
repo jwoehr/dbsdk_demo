@@ -126,6 +126,28 @@
       * FILE STATUS for LLMDSPF — 2 bytes, standard COBOL status.
       *--------------------------------------------------------------
        01  WS-DSPF-FS1             PIC X(2).
+       01  WS-DSPF-AID REDEFINES WS-DSPF-FS1 PIC X(2).
+           05 WS-AID-BYTE1         PIC X(1).
+               88 AID-ENTER        VALUE X'F1'.
+               88 AID-CLEAR        VALUE X'BD'.
+               88 AID-HELP         VALUE X'F3'.
+               88 AID-PAGEDOWN     VALUE X'F5'.
+               88 AID-PAGEUP       VALUE X'F4'.
+               88 AID-PRINT        VALUE X'F6'.
+               88 AID-RECORD-BKSP  VALUE X'F8'.
+               88 AID-F1           VALUE X'31'.
+               88 AID-F2           VALUE X'32'.
+               88 AID-F3           VALUE X'33'.
+               88 AID-F4           VALUE X'34'.
+               88 AID-F5           VALUE X'35'.
+               88 AID-F6           VALUE X'36'.
+               88 AID-F7           VALUE X'37'.
+               88 AID-F8           VALUE X'38'.
+               88 AID-F9           VALUE X'39'.
+               88 AID-F10          VALUE X'3A'.
+               88 AID-F11          VALUE X'3B'.
+               88 AID-F12          VALUE X'3C'.
+           05 WS-AID-BYTE2         PIC X(1).
 
       *--------------------------------------------------------------
       * Exit flag — set when F3 is pressed to leave the main loop.
@@ -351,7 +373,7 @@
                        MOVE 'Y' TO WS-EXIT-FLAG
                    WHEN WS-INDICATOR(4) = B'1'
                        PERFORM EDIT-CONFIG
-                   WHEN OTHER
+                   WHEN AID-ENTER OR WS-DSPF-FS1(1:1) = X'00'
                        MOVE SPACES TO WS-MSG-TEXT
                        PERFORM CALL-LLM
                END-EVALUATE
