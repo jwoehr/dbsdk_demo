@@ -1,0 +1,208 @@
+     A*=============================================================================
+     A* File:    LLMDSPF.DSPF
+     A* Date:    2026-07-31
+     A* Purpose: DDS display file for LLMCOBOL. Provides the 5250 screens for
+     A*          entering prompts, viewing LLM responses, and configuring Ollama
+     A*          and OpenAI-compatible backend connection parameters. Includes
+     A*          subfiles for field prompting and program message display.
+     A* License: Apache License, Version 2.0
+     A*          https://www.apache.org/licenses/LICENSE-2.0
+     A* Authors: Jack Woehr <jwoehr@softwoehr.com>
+     A*          IBM Bob (AI pair programmer)
+     A* Thanks:  Patrick Behr <pbehr@behrbros.com>
+     A*=============================================================================
+     A                                      DSPSIZ(24 80 *DS3)
+     A                                      INDARA
+     A*                                     function keys used
+     A                                      CA03(03) CA04(04) CF06(06) CA12(12)
+     A                                      PAGEUP
+     A                                      PAGEDOWN
+     A*                                     include remaining keys to prevent
+     A*                                     keyboard lockup
+     A                                      CA01 CA02 CA05 CA07 CA08 CF09 CA10
+     A                                      CA11 CA13 CA14 CA15 CA16 CA17 CA18
+     A                                      CA19 CA20 CA21 CA22 CA23 CA24
+     A*===============================================================
+     A          R RUNSCRN
+     A                                      OVERLAY
+     A                                  3  2'Backend:'
+     A                                      COLOR(WHT)
+     A            RUN_BKND      20A  O  3 11
+     A                                  4  5'URL:'
+     A                                      COLOR(WHT)
+     A            RUN_URL       70A  O  4 10
+     A                                  5  3'Model:'
+     A                                      COLOR(WHT)
+     A            RUN_MODL      70A  O  5 10
+     A                                  7  2'Prompt:'
+     A                                      COLOR(WHT)
+     A            PROMPT       500A  B  7 10WRDWRAP
+     A                                      CHECK(LC)
+     A                                 15  4'Resp:'
+     A                                      COLOR(WHT)
+     A            RESPONSE     500A  B 15 10WRDWRAP
+     A                                 22  2'F3=Exit'
+     A                                      COLOR(BLU)
+     A                                 22 12'F4=Config'
+     A                                      COLOR(BLU)
+     A*===============================================================
+     A* CFGSCRN - backend selector (first config screen)
+     A*===============================================================
+     A          R CFGSCRN
+     A                                      OVERLAY
+     A                                      RTNCSRLOC(&CURREC &CURFLD)
+     A            CURREC        10A  H
+     A            CURFLD        10A  H
+     A                                  2  2'Enter the desired values directly-
+     A                                       or press F4 to prompt.'
+     A                                      COLOR(BLU)
+     A                                  4  2'Backend:'
+     A                                      COLOR(WHT)
+     A            CFG_BKND      20A  B  4 11CHECK(LC)
+     A                                      CHANGE(30)
+     A  20                                  DSPATR(PC)
+     A                                 22  2'F12=Cancel'
+     A                                      COLOR(BLU)
+     A                                 22 15'F6=Make My Default'
+     A                                      COLOR(BLU)
+     A                                 22 36'Enter=Use these values'
+     A                                      COLOR(BLU)
+     A*===============================================================
+     A* OLLAMACFG - ollama-specific config sub-screen
+     A*===============================================================
+     A          R OLLAMACFG
+     A                                      OVERLAY
+     A                                      RTNCSRLOC(&OL_REC &OL_FLD)
+     A            OL_REC        10A  H
+     A            OL_FLD        10A  H
+     A                                  2  2'Enter the desired values directly-
+     A                                       or press F4 to prompt.'
+     A                                      COLOR(BLU)
+     A                                  3  2'If the value doesn''t fit below,-
+     A                                       add the value to the config and-
+     A                                       use the prompt.'
+     A                                      COLOR(BLU)
+     A                                  5  2'Ollama Configuration'
+     A                                      COLOR(WHT)
+     A                                  6  4'Protocol:'
+     A                                      COLOR(WHT)
+     A            OL_PROT       10A  B  6 14CHECK(LC)
+     A                                      CHANGE(31)
+     A  21                                  DSPATR(PC)
+     A                                  8  6'Server:'
+     A                                      COLOR(WHT)
+     A            OL_SRVRH    1000A  H
+     A            OL_SRVR      227A  B  8 14CHECK(LC)
+     A                                      CHANGE(32)
+     A  22                                  DSPATR(PC)
+     A                                 12  8'Port:'
+     A                                      COLOR(WHT)
+     A            OL_PORT       10   B 12 14CHECK(LC)
+     A                                      CHANGE(33)
+     A  23                                  DSPATR(PC)
+     A                                 14  7'Model:'
+     A                                      COLOR(WHT)
+     A            OL_MODLH    1000A  H
+     A            OL_MODL      227A  B 14 14CHECK(LC)
+     A                                      CHANGE(34)
+     A  24                                  DSPATR(PC)
+     A                                 22  2'F12=Cancel'
+     A                                      COLOR(BLU)
+     A                                 22 15'F6=Make My Default'
+     A                                      COLOR(BLU)
+     A                                 22 36'Enter=Use these values'
+     A                                      COLOR(BLU)
+     A*===============================================================
+     A* OAICFG - openai_compatible-specific config sub-screen
+     A*===============================================================
+     A          R OAICFG
+     A                                      OVERLAY
+     A                                      RTNCSRLOC(&OA_REC &OA_FLD)
+     A            OA_REC        10A  H
+     A            OA_FLD        10A  H
+     A                                  2  2'OpenAI-Compatible Configuration'
+     A                                      COLOR(WHT)
+     A                                  3  2'F4=Prompt. Key+Path: type directly'
+     A                                      COLOR(BLU)
+     A                                  5  4'Protocol:'
+     A                                      COLOR(WHT)
+     A            OA_PROT       10A  B  5 14CHECK(LC)
+     A                                      CHANGE(31)
+     A  21                                  DSPATR(PC)
+     A                                  7  6'Server:'
+     A                                      COLOR(WHT)
+     A            OA_SRVRH    1000A  H
+     A            OA_SRVR       60A  B  7 14CHECK(LC)
+     A                                      CHANGE(32)
+     A  22                                  DSPATR(PC)
+     A                                  9  8'Port:'
+     A                                      COLOR(WHT)
+     A            OA_PORT       10   B  9 14CHECK(LC)
+     A                                      CHANGE(33)
+     A  23                                  DSPATR(PC)
+     A                                 11  7'Model:'
+     A                                      COLOR(WHT)
+     A            OA_MODLH    1000A  H
+     A            OA_MODL       60A  B 11 14CHECK(LC)
+     A                                      CHANGE(34)
+     A  24                                  DSPATR(PC)
+     A                                 13  5'API Key:'
+     A                                      COLOR(WHT)
+     A            OA_KEYH     8000A  H
+     A            OA_KEY        60A  B 13 14CHECK(LC)
+     A                                      CHANGE(35)
+     A  25                                  DSPATR(PC)
+     A                                 15  3'Base Path:'
+     A                                      COLOR(WHT)
+     A            OA_PATH       60A  B 15 14CHECK(LC)
+     A                                      CHANGE(36)
+     A  26                                  DSPATR(PC)
+     A                                 22  2'F12=Cancel'
+     A                                      COLOR(BLU)
+     A                                 22 15'F6=Make My Default'
+     A                                      COLOR(BLU)
+     A                                 22 36'Enter=Use these values'
+     A                                      COLOR(BLU)
+     A*===============================================================
+     A          R PROMPTSFL                 SFL
+     A  05                                  SFLNXTCHG
+     A            P_VALUE     1000A  H
+     A            P_SELECT       1A  B  6  2
+     A            P_TEXT        70A  O  6  5
+     A*----------------------------------------------------------------
+     A          R PROMPTCTL                 SFLCTL(PROMPTSFL)
+     A                                      SFLSIZ(0100)
+     A                                      SFLPAG(0010)
+     A                                      OVERLAY
+     A  01                                  SFLDSP
+     A  02                                  SFLDSPCTL
+     A N02                                  SFLCLR
+     A  40                                  SFLEND(*MORE)
+     A            P_RCDNBR       4S 0H      SFLRCDNBR
+     A                                  2  2'Prompt for'
+     A                                      COLOR(WHT)
+     A            P_FIELD       10A  O  2 13COLOR(WHT)
+     A                                  4  2'1=Select'
+     A                                      COLOR(BLU)
+     A*----------------------------------------------------------------
+     A          R PROMPTKEYS
+     A                                      OVERLAY
+     A                                 22  2'F12=Cancel'
+     A                                      COLOR(BLU)
+     A*===============================================================
+     A* MESSAGE SUBFILE
+     A*===============================================================
+     A          R MSGSFL                    SFL
+     A                                      SFLMSGRCD(23)
+     A            MSGKEY                    SFLMSGKEY
+     A            PGMNAME                   SFLPGMQ
+     A*----------------------------------------------------------------
+     A          R MSGSFLC                   SFLCTL(MSGSFL)
+     A                                      SFLSIZ(0002)
+     A                                      SFLPAG(0001)
+     A                                      OVERLAY
+     A                                      SFLDSP
+     A                                      SFLDSPCTL
+     A                                      SFLINZ
+     A N98                                  SFLEND
+     A            PGMNAME                   SFLPGMQ
