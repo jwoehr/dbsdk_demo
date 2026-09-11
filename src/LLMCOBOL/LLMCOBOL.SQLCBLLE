@@ -148,7 +148,7 @@
       *--------------------------------------------------------------
       * Subfile work fields
       *--------------------------------------------------------------
-       01  WS-RRN1                 PIC 9(9) COMP-4 VALUE 0.
+       01  WS-RRN1                 PIC 9(9) COMP-4 VALUE 1.
 
       *--------------------------------------------------------------
       * Prompt values: single-row fetch target plus storage array.
@@ -866,11 +866,11 @@
                    WHEN OTHER
                        MOVE 1 TO WS-RRN1
                        PERFORM UNTIL WS-RRN1 > WS-PV-COUNT
-                           READ LLMDSPF RECORD
+                           READ SUBFILE LLMDSPF RECORD
                                INTO PROMPTSFL-REC
                                FORMAT IS 'PROMPTSFL'
                                INDICATORS ARE WS-INDICATORS-AREA
-                               AT END CONTINUE
+                               INVALID KEY CONTINUE
                            END-READ
                            IF P-SELECT NOT = SPACES
                                MOVE P-TEXT  TO WS-RTN-SHORT
@@ -975,7 +975,7 @@
            MOVE X'F0' TO WS-IND-BYTES(1:1)
            MOVE X'F0' TO WS-IND-BYTES(2:1)
            MOVE X'F0' TO WS-IND-BYTES(3:1)
-           MOVE 0    TO WS-RRN1
+           MOVE 1    TO WS-RRN1
            MOVE 1    TO P-RCDNBR
            WRITE LLMDSPF-RECORD FROM PROMPTCTL-REC FORMAT IS 'PROMPTCTL'
                INDICATORS ARE WS-INDICATORS-AREA
@@ -1005,9 +1005,11 @@
                    MOVE FUNCTION TRIM(P-VALUE) TO P-TEXT
                END-IF
                MOVE WS-LOOP-IDX TO WS-RRN1
-               WRITE LLMDSPF-RECORD FROM PROMPTSFL-REC
+               WRITE SUBFILE LLMDSPF-RECORD FROM PROMPTSFL-REC
                    FORMAT IS 'PROMPTSFL'
                    INDICATORS ARE WS-INDICATORS-AREA
+                   INVALID KEY CONTINUE
+               END-WRITE
                ADD 1 TO WS-LOOP-IDX
            END-PERFORM
            IF WS-PV-COUNT > 0
