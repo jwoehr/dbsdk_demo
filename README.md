@@ -4,7 +4,7 @@
 
 **License:** Apache License, Version 2.0 — <https://www.apache.org/licenses/LICENSE-2.0>
 
-**Authors:** Jack Woehr \<<jwoehr@softwoehr.com>\>, IBM Bob (AI pair programmer)
+**Authors:** Jack Woehr \<<jwoehr@softwoehr.com>\>, IBM Bob (AI pair programmer) *et alii agentes*
 
 **Thanks:** Patrick Behr \<<pbehr@behrbros.com>\>
 
@@ -199,14 +199,14 @@ After building with `make` (in either or both `src/LLMRPG` or `src/LLMCOBOL`):
 for the RPG version:
 
 ```text
-ADDLIBLE DBSDK_V1
+ADDLIBLE DBSDK_DEMO
 CALL PGM(DBSDK_DEMO/LLMRPG)
 ```
 
 or for the COBOL version:
 
 ```text
-ADDLIBLE DBSDK_V1
+ADDLIBLE DBSDK_DEMO
 CALL PGM(DBSDK_DEMO/LLMCOBOL)
 ```
 
