@@ -16,8 +16,8 @@
      A                                      INDARA
      A*                                     function keys used
      A                                      CA03(03) CA04(04) CF06(06) CA12(12)
-     A                                      PAGEUP
-     A                                      PAGEDOWN
+     A                                      PAGEUP(13)
+     A                                      PAGEDOWN(14)
      A*                                     include remaining keys to prevent
      A*                                     keyboard lockup
      A                                      CA01 CA02 CA05 CA07 CA08 CF09 CA10
@@ -26,6 +26,8 @@
      A*===============================================================
      A          R RUNSCRN
      A                                      OVERLAY
+     A                                  2  2'                              -
+     A                                            '
      A                                  3  2'Backend:'
      A                                      COLOR(WHT)
      A            RUN_BKND      20A  O  3 11
@@ -209,3 +211,28 @@
      A                                      SFLINZ
      A N98                                  SFLEND
      A            PGMNAME                   SFLPGMQ
+     A*===============================================================
+     A* RESPSFL / RESPCTL / RESPKEYS - paged LLM response display
+     A*===============================================================
+     A          R RESPSFL                    SFL
+     A            RESP_LINE     78A  O  6  2
+     A*----------------------------------------------------------------
+     A          R RESPCTL                   SFLCTL(RESPSFL)
+     A                                      SFLSIZ(0500)
+     A                                      SFLPAG(0016)
+     A                                      OVERLAY
+     A  09                                  SFLDSP
+     A  10                                  SFLDSPCTL
+     A N10                                  SFLCLR
+     A  11                                  SFLEND(*MORE)
+     A            R_RCDNBR       4S 0H      SFLRCDNBR
+     A                                  2  2'LLM Response: PageUp/Down to s-
+     A                                       croll'
+     A                                      COLOR(WHT)
+     A                                  4  2'F12=Return'
+     A                                      COLOR(BLU)
+     A*----------------------------------------------------------------
+     A          R RESPKEYS
+     A                                      OVERLAY
+     A                                 22  2'F12=Return'
+     A                                      COLOR(BLU)

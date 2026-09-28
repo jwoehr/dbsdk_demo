@@ -19,7 +19,8 @@ ctl-opt dftactgrp(*no) option(*srcstmt : *nodebugio);
 
 dcl-f  LLMDSPF  workstn
                 infds(dspf_info)  indds(dspf_inds)
-                sfile(PROMPTSFL : rrn1);
+                sfile(PROMPTSFL : rrn1)
+                sfile(RESPSFL   : rrn2);
 
 dcl-ds  dspf_info;
     keyPressed    char(1)  pos(369);
@@ -29,6 +30,13 @@ dcl-ds  dspf_inds;
     sfl_dsp        ind  pos(1);
     sfl_dspCtl     ind  pos(2);
     sfl_end        ind  pos(3);
+    // Response subfile indicators: 9=display, 10=displayCtl, 11=end
+    resp_dsp       ind  pos(9);
+    resp_dspCtl    ind  pos(10);
+    resp_end       ind  pos(11);
+    // Page scroll indicators: 13=PageUp, 14=PageDown
+    pageUp         ind  pos(13);
+    pageDown       ind  pos(14);
     // Protect indicators: 20=backend, 21=protocol, 22=server, 23=port,
     //                     24=model, 25=apikey, 26=basepath
     pos_bknd       ind  pos(20);
@@ -50,6 +58,7 @@ dcl-ds  dspf_inds;
 end-ds;
 
 dcl-s  rrn1      uns(5);
+dcl-s  rrn2      uns(5);
 
 dcl-ds PSDS PSDS;
     pgmName       *PROC;
@@ -61,6 +70,10 @@ dcl-c  F6       x'36';
 dcl-c  F9       x'39';
 dcl-c  F12      x'3C';
 dcl-c  ENTER    x'F1';
+
+// Maximum response characters captured from the LLM CLOB.
+// Increase this constant to allow longer responses.
+dcl-c  MAX_RESPONSE  32000;
 
 // Global variables mirroring the SQL global variables for each backend.
 // 'backend' drives which set of dbsdk_v1 functions are used.
@@ -96,6 +109,7 @@ dou keyPressed = F3;
     endif;
     RUN_URL = %trim(RUN_URL) + ':' + %char(port);
     RUN_MODL = model;
+    RESPONSE = *blanks;
 
     write MSGSFLC;
     exfmt RUNSCRN;
@@ -112,7 +126,7 @@ dou keyPressed = F3;
         RESPONSE = *blanks;
 
     elseif keyPressed = ENTER;
-        RESPONSE = callLLM( PROMPT );
+        showResponse( callLLM( PROMPT ) );
 
     endif;
 
@@ -783,19 +797,75 @@ dcl-proc promptField;
 end-proc promptField;
 
 
+//------------------------------------------------------------------------------
+// showResponse
+// Loads the full LLM response into the RESPSFL subfile, 78 chars per line,
+// and displays it in a page loop.  The user presses F12 or Enter to dismiss.
+//------------------------------------------------------------------------------
+dcl-proc showResponse;
+    dcl-pi *n;
+        in_response  varchar(MAX_RESPONSE) const;
+    end-pi;
+
+    dcl-c  LINE_WIDTH  78;
+    dcl-s  offset      int(10);
+    dcl-s  remaining   int(10);
+    dcl-s  chunk       varchar(78);
+
+    // ---- Clear the subfile ----
+    resp_dsp    = *off;
+    resp_dspCtl = *off;
+    rrn2        = 0;
+    R_RCDNBR    = 1;
+    write RESPCTL;
+    resp_dsp    = *on;
+    resp_dspCtl = *on;
+
+    // ---- Load lines into the subfile ----
+    remaining = %len(in_response);
+    offset    = 1;
+
+    dow remaining > 0;
+        if remaining >= LINE_WIDTH;
+            chunk     = %subst(in_response : offset : LINE_WIDTH);
+            offset    += LINE_WIDTH;
+            remaining -= LINE_WIDTH;
+        else;
+            chunk     = %subst(in_response : offset : remaining);
+            remaining  = 0;
+        endif;
+
+        rrn2      += 1;
+        RESP_LINE  = chunk;
+        write RESPSFL;
+    enddo;
+
+    resp_end  = *on;
+
+    // ---- Clear message line before displaying response ----
+    write MSGSFLC;
+
+    // ---- Page loop — dismiss on F12 or Enter ----
+    // F12=Return legend is a literal inside RESPCTL; no separate RESPKEYS write needed.
+    dou keyPressed = F12 or keyPressed = ENTER;
+        exfmt RESPCTL;
+    enddo;
+
+end-proc showResponse;
+
 
 //------------------------------------------------------------------------------
 // callLLM
 // Dispatches to the correct backend's generate function.
 //------------------------------------------------------------------------------
 dcl-proc callLLM;
-    dcl-pi *n  varchar(1000);
+    dcl-pi *n  varchar(MAX_RESPONSE);
         in_prompt  varchar(500) const;
     end-pi;
 
-    dcl-s llmResponse  SQLTYPE(CLOB : 16000000);
+    dcl-s llmResponse  SQLTYPE(CLOB : 32000);
     dcl-s prompt       varchar(1000);
-    dcl-s rtnVal       varchar(1000);
+    dcl-s rtnVal       varchar(MAX_RESPONSE);
 
     // Sanity-check: re-fetch current settings so the SQL globals are current
     dcl-s l_protocol  varchar(16);

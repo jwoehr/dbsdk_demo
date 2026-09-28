@@ -100,6 +100,15 @@
       *-- PROMPTKEYS overlay
        01  PROMPTKEYS-REC.
            05  FILLER              PIC X(1).
+      *-- RESPSFL subfile record (one 78-char output line)
+       01  RESPSFL-REC.
+           05  RESP-LINE           PIC X(78).
+      *-- RESPCTL subfile control
+       01  RESPCTL-REC.
+           05  R-RCDNBR            PIC S9(4).
+      *-- RESPKEYS overlay
+       01  RESPKEYS-REC.
+           05  FILLER              PIC X(1).
       *-- MSGSFL / MSGSFLC
        01  MSGSFL-REC.
            05  MSGKEY              PIC X(4).
@@ -238,9 +247,20 @@
       *--------------------------------------------------------------
       * SQL host variables
       *--------------------------------------------------------------
-      * WS-LLM-RESPONSE: sized to the RESPONSE display field (500).
-      * PIC X larger than ~500 causes SQL5044 for CLOB-returning UDFs.
-       01  WS-LLM-RESPONSE         PIC X(500).
+      * WS-MAX-RESPONSE: configurable cap on response characters captured
+      * from the LLM CLOB.  Increase this value to allow longer responses.
+       01  WS-MAX-RESPONSE         PIC S9(9) COMP-4 VALUE 32000.
+      * WS-LLM-RESPONSE: level-49 VARCHAR group so Db2 maps it to SQL
+      * VARCHAR, allowing up to WS-MAX-RESPONSE characters.
+       01  WS-LLM-RESPONSE.
+           49  WS-LLM-RESPONSE-LEN  PIC S9(4) COMP-4.
+           49  WS-LLM-RESPONSE-DATA PIC X(32000).
+      * Response subfile work variables
+       01  WS-RRN2                 PIC 9(9) COMP-4 VALUE 1.
+       01  WS-RESP-LINE            PIC X(78).
+       01  WS-RESP-OFFSET          PIC S9(9) COMP-4.
+       01  WS-RESP-REMAIN          PIC S9(9) COMP-4.
+       01  WS-RESP-CHUNK           PIC S9(9) COMP-4.
 
       * WS-OPT-EMPTY: host variable for options=>'{}' to prevent
       * SQL0206 on '{}' under NAMING(*SYS) in the COBOL precompiler.
@@ -358,6 +378,7 @@
                WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
                MOVE SPACES TO DSP-PROMPT
+               MOVE SPACES TO RESPONSE
                WRITE LLMDSPF-RECORD FROM RUNSCRN-REC FORMAT IS 'RUNSCRN'
                    INDICATORS ARE WS-INDICATORS-AREA
                READ LLMDSPF INTO RUNSCRN-INPUT-REC FORMAT IS 'RUNSCRN'
@@ -378,10 +399,12 @@
                        MOVE SPACES TO IN-RESPONSE
                        MOVE SPACES TO DSP-PROMPT
                        MOVE SPACES TO RESPONSE
-                   WHEN WS-INDICATOR(6) = B'0'
-                       AND WS-INDICATOR(3) = B'0'
-                       AND WS-INDICATOR(4) = B'0'
+                   WHEN WS-INDICATOR(3)  = B'0'
+                       AND WS-INDICATOR(4)  = B'0'
+                       AND WS-INDICATOR(6)  = B'0'
                        AND WS-INDICATOR(12) = B'0'
+                       AND WS-INDICATOR(13) = B'0'
+                       AND WS-INDICATOR(14) = B'0'
                        MOVE SPACES TO WS-MSG-TEXT
                        PERFORM CALL-LLM
                    WHEN OTHER
@@ -1055,6 +1078,82 @@
            MOVE 1 TO P-RCDNBR.
 
       *==============================================================
+      * SHOW-RESPONSE
+      * Loads WS-LLM-RESPONSE-DATA into the RESPSFL subfile, 78 chars
+      * per line, and displays it in a page loop.  The user presses
+      * F12 or Enter to dismiss and return to the main screen.
+      *==============================================================
+       SHOW-RESPONSE.
+      *    ---- Clear the response subfile ----
+      *    Indicators 9=SFLDSP, 10=SFLDSPCTL, 11=SFLEND
+           MOVE X'F0' TO WS-IND-BYTES(9:1)
+           MOVE X'F0' TO WS-IND-BYTES(10:1)
+           MOVE X'F0' TO WS-IND-BYTES(11:1)
+           MOVE 1     TO WS-RRN1
+           MOVE 1     TO WS-RRN2
+           MOVE 1     TO R-RCDNBR
+           WRITE LLMDSPF-RECORD FROM RESPCTL-REC FORMAT IS 'RESPCTL'
+               INDICATORS ARE WS-INDICATORS-AREA
+           MOVE X'F1' TO WS-IND-BYTES(10:1)
+
+      *    ---- Load 78-char lines into the subfile ----
+           MOVE 1                    TO WS-RESP-OFFSET
+           MOVE WS-LLM-RESPONSE-LEN TO WS-RESP-REMAIN
+           PERFORM UNTIL WS-RESP-REMAIN <= 0
+               IF WS-RESP-REMAIN >= 78
+                   MOVE 78 TO WS-RESP-CHUNK
+               ELSE
+                   MOVE WS-RESP-REMAIN TO WS-RESP-CHUNK
+               END-IF
+               MOVE SPACES TO WS-RESP-LINE
+               MOVE WS-LLM-RESPONSE-DATA(
+                        WS-RESP-OFFSET : WS-RESP-CHUNK)
+                   TO WS-RESP-LINE
+               MOVE SPACES TO RESPSFL-REC
+               MOVE WS-RESP-LINE TO RESP-LINE
+      *        RELATIVE KEY drives the subfile slot; use WS-RRN2 as
+      *        the counter then assign to WS-RRN1 before WRITE SUBFILE.
+               MOVE WS-RRN2 TO WS-RRN1
+               WRITE SUBFILE LLMDSPF-RECORD FROM RESPSFL-REC
+                   FORMAT IS 'RESPSFL'
+                   INDICATORS ARE WS-INDICATORS-AREA
+                   INVALID KEY CONTINUE
+               END-WRITE
+               ADD WS-RESP-CHUNK TO WS-RESP-OFFSET
+               SUBTRACT WS-RESP-CHUNK FROM WS-RESP-REMAIN
+               ADD 1 TO WS-RRN2
+           END-PERFORM
+
+      *    ---- Mark end-of-subfile ----
+           MOVE X'F1' TO WS-IND-BYTES(9:1)
+           MOVE X'F1' TO WS-IND-BYTES(11:1)
+
+      *    ---- Clear message line before displaying response ----
+           WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
+               INDICATORS ARE WS-INDICATORS-AREA
+
+      *    ---- Page loop: dismiss on F12 or Enter ----
+      *    Enter is detected as no CA/CF key pressed
+           MOVE 'N' TO WS-SFL-DONE
+           MOVE 1   TO R-RCDNBR
+           PERFORM UNTIL SFL-DONE
+               WRITE LLMDSPF-RECORD FROM RESPCTL-REC FORMAT IS 'RESPCTL'
+                   INDICATORS ARE WS-INDICATORS-AREA
+               READ LLMDSPF INTO RESPCTL-REC FORMAT IS 'RESPCTL'
+                   INDICATORS ARE WS-INDICATORS-AREA
+                   AT END CONTINUE
+               END-READ
+               IF WS-INDICATOR(12) = B'1'
+                   OR (WS-INDICATOR(3)  = B'0'
+                   AND WS-INDICATOR(4)  = B'0'
+                   AND WS-INDICATOR(12) = B'0'
+                   AND WS-INDICATOR(13) = B'0'
+                   AND WS-INDICATOR(14) = B'0')
+                   MOVE 'Y' TO WS-SFL-DONE
+               END-IF
+           END-PERFORM.
+
+      *==============================================================
       * CALL-LLM
       *==============================================================
        CALL-LLM.
@@ -1152,7 +1251,7 @@
                PERFORM SEND-PROGRAM-MESSAGE
            END-IF
 
-           MOVE WS-LLM-RESPONSE TO RESPONSE.
+           PERFORM SHOW-RESPONSE.
 
       *==============================================================
       * SEND-PROGRAM-MESSAGE  (QMHSNDPM)
