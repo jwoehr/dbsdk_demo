@@ -373,9 +373,11 @@
                        MOVE 'Y' TO WS-EXIT-FLAG
                    WHEN WS-INDICATOR(4) = B'1'
                        PERFORM EDIT-CONFIG
-                   WHEN OTHER
+                   WHEN AID-ENTER
                        MOVE SPACES TO WS-MSG-TEXT
                        PERFORM CALL-LLM
+                   WHEN OTHER
+                       CONTINUE
                END-EVALUATE
            END-PERFORM
 
