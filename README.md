@@ -50,20 +50,36 @@ dbsdk_demo/
 ├── LICENSE                          Apache 2.0 license text
 ├── llmrpg-plan.md                   Design notes and planning document
 └── src/
+    ├── share/
+    │   └── LLMDSPF.DSPF             DDS display file — shared by LLMRPG and LLMCOBOL
     ├── LLMRPG/
     │   ├── Makefile                 Build script — compiles DSPF and SQLRPGLE on IBM i
-    │   ├── LLMDSPF.DSPF             DDS display file — all 5250 screen definitions
     │   ├── LLMRPG.SQLRPGLE          ILE RPG program — main application logic
     │   └── gemini_openai_compat.sh  Shell example — curl call to Gemini OpenAI-compat API
     └── LLMCOBOL/
         ├── Makefile                 Build script — compiles DSPF and SQLCBLLE on IBM i
-        ├── LLMDSPF.DSPF             DDS display file — all 5250 screen definitions
         └── LLMCOBOL.SQLCBLLE        ILE COBOL program — main application logic
 ```
 
 ---
 
 ## Files
+
+### `src/share/LLMDSPF.DSPF`
+
+DDS display file defining all 5250 screen records shared by both `LLMRPG` and
+`LLMCOBOL`. Each program's `Makefile` stages this file into a source physical
+file member on IBM i before compilation.
+
+| Record                    | Purpose                                       |
+| ------------------------- | --------------------------------------------- |
+| `RUNSCRN`                 | Main prompt/response screen                   |
+| `CFGSCRN`                 | Backend selector (first configuration screen) |
+| `OLLAMACFG`               | Ollama-specific configuration sub-screen      |
+| `OAICFG`                  | OpenAI-compatible configuration sub-screen    |
+| `PROMPTSFL` / `PROMPTCTL` | Subfile for F4 field-value prompting          |
+| `PROMPTKEYS`              | Key legend overlay for the prompt subfile     |
+| `MSGSFL` / `MSGSFLC`      | Program message subfile (line 23)             |
 
 ### `src/LLMRPG/LLMRPG.SQLRPGLE`
 
@@ -87,20 +103,6 @@ Key procedures:
 | `callLLM`              | Submits the prompt via embedded SQL to `DBSDK_V1` functions |
 | `SendProgramMessage`   | Sends a message to the program message queue                |
 | `ClearProgramMessages` | Clears the program message queue                            |
-
-### `src/LLMRPG/LLMDSPF.DSPF`
-
-DDS display file defining all 5250 screen records used by `LLMRPG`:
-
-| Record                    | Purpose                                       |
-| ------------------------- | --------------------------------------------- |
-| `RUNSCRN`                 | Main prompt/response screen                   |
-| `CFGSCRN`                 | Backend selector (first configuration screen) |
-| `OLLAMACFG`               | Ollama-specific configuration sub-screen      |
-| `OAICFG`                  | OpenAI-compatible configuration sub-screen    |
-| `PROMPTSFL` / `PROMPTCTL` | Subfile for F4 field-value prompting          |
-| `PROMPTKEYS`              | Key legend overlay for the prompt subfile     |
-| `MSGSFL` / `MSGSFLC`      | Program message subfile (line 23)             |
 
 ### `src/LLMRPG/Makefile`
 
@@ -156,20 +158,6 @@ Key procedures:
 | `CALL-LLM`               | Submits the prompt via embedded SQL to `DBSDK_V1` functions |
 | `SEND-PROGRAM-MESSAGE`   | Sends a message to the program message queue                |
 | `CLEAR-PROGRAM-MESSAGES` | Clears the program message queue                            |
-
-### `src/LLMCOBOL/LLMDSPF.DSPF`
-
-DDS display file defining all 5250 screen records used by `LLMCOBOL`:
-
-| Record                    | Purpose                                       |
-| ------------------------- | --------------------------------------------- |
-| `RUNSCRN`                 | Main prompt/response screen                   |
-| `CFGSCRN`                 | Backend selector (first configuration screen) |
-| `OLLAMACFG`               | Ollama-specific configuration sub-screen      |
-| `OAICFG`                  | OpenAI-compatible configuration sub-screen    |
-| `PROMPTSFL` / `PROMPTCTL` | Subfile for F4 field-value prompting          |
-| `PROMPTKEYS`              | Key legend overlay for the prompt subfile     |
-| `MSGSFL` / `MSGSFLC`      | Program message subfile (line 23)             |
 
 ### `src/LLMCOBOL/Makefile`
 
