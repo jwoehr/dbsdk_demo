@@ -107,6 +107,10 @@ dou keyPressed = F3;
     elseif keyPressed = F4;
         editConfig();
 
+    elseif keyPressed = F12;
+        PROMPT   = *blanks;
+        RESPONSE = *blanks;
+
     elseif keyPressed = ENTER;
         RESPONSE = callLLM( PROMPT );
 
