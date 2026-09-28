@@ -18,9 +18,11 @@
      A                                      CA03(03) CA04(04) CF06(06) CA12(12)
      A*                                     include remaining keys to prevent
      A*                                     keyboard lockup
-     A                                      CA01 CA02 CA05 CA07 CA08 CF09 CA10
-     A                                      CA11 CA13 CA14 CA15 CA16 CA17 CA18
-     A                                      CA19 CA20 CA21 CA22 CA23 CA24
+     A                                      CA01(99) CA02(99) CA05(99) CA07(99)
+     A                                      CA08(99) CF09(99) CA10(99) CA11(99)
+     A                                      CA13(99) CA14(99) CA15(99) CA16(99)
+     A                                      CA17(99) CA18(99) CA19(99) CA20(99)
+     A                                      CA21(99) CA22(99) CA23(99) CA24(99)
      A*===============================================================
      A          R RUNSCRN
      A                                      OVERLAY

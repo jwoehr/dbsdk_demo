@@ -403,8 +403,7 @@
                        AND WS-INDICATOR(4)  = B'0'
                        AND WS-INDICATOR(6)  = B'0'
                        AND WS-INDICATOR(12) = B'0'
-                       AND WS-INDICATOR(13) = B'0'
-                       AND WS-INDICATOR(14) = B'0'
+                       AND WS-INDICATOR(99) = B'0'
                        MOVE SPACES TO WS-MSG-TEXT
                        PERFORM CALL-LLM
                    WHEN OTHER
@@ -616,6 +615,8 @@
                            TO WS-MSG-TEXT
                        PERFORM SEND-PROGRAM-MESSAGE
 
+                   WHEN WS-INDICATOR(99) = B'1'
+                       CONTINUE
                    WHEN OTHER
                        MOVE FUNCTION TRIM(CFG-BKND) TO WS-BACKEND
                        PERFORM FETCH-CONFIG
@@ -714,6 +715,8 @@
                            TO WS-MSG-TEXT
                        PERFORM SEND-PROGRAM-MESSAGE
 
+                   WHEN WS-INDICATOR(99) = B'1'
+                       CONTINUE
                    WHEN OTHER
                        MOVE 'Y' TO WS-INNER-DONE
                        IF WS-INDICATOR(32) = B'1'
@@ -834,6 +837,8 @@
                            TO WS-MSG-TEXT
                        PERFORM SEND-PROGRAM-MESSAGE
 
+                   WHEN WS-INDICATOR(99) = B'1'
+                       CONTINUE
                    WHEN OTHER
                        MOVE 'Y' TO WS-INNER-DONE
                        IF WS-INDICATOR(32) = B'1'
@@ -918,6 +923,8 @@
                              OR WS-INDICATOR(12) = B'1'
                        MOVE 'Y' TO WS-SFL-DONE
 
+                   WHEN WS-INDICATOR(99) = B'1'
+                       CONTINUE
                    WHEN OTHER
                        MOVE 1 TO WS-RRN1
                        PERFORM UNTIL WS-RRN1 > WS-PV-COUNT
@@ -927,7 +934,7 @@
                                INDICATORS ARE WS-INDICATORS-AREA
                                INVALID KEY CONTINUE
                            END-READ
-                           IF P-SELECT NOT = SPACES
+                           IF P-SELECT = '1'
                                MOVE P-TEXT  TO WS-RTN-SHORT
                                MOVE P-VALUE TO WS-RTN-LONG
                                MOVE 'Y'     TO WS-SFL-DONE
@@ -1161,8 +1168,7 @@
                    OR (WS-INDICATOR(3)  = B'0'
                    AND WS-INDICATOR(4)  = B'0'
                    AND WS-INDICATOR(12) = B'0'
-                   AND WS-INDICATOR(13) = B'0'
-                   AND WS-INDICATOR(14) = B'0')
+                   AND WS-INDICATOR(99) = B'0')
                    MOVE 'Y' TO WS-SFL-DONE
                END-IF
            END-PERFORM.
