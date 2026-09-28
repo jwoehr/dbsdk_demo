@@ -48,6 +48,7 @@ and install either or both.
 dbsdk_demo/
 ├── README.md                        This file
 ├── LICENSE                          Apache 2.0 license text
+├── Makefile                         Top-level build script — builds both projects
 ├── llmrpg-plan.md                   Design notes and planning document
 └── src/
     ├── share/
@@ -60,6 +61,50 @@ dbsdk_demo/
         ├── Makefile                 Build script — compiles DSPF and SQLCBLLE on IBM i
         └── LLMCOBOL.SQLCBLLE        ILE COBOL program — main application logic
 ```
+
+---
+
+## Building
+
+### Top-level build (recommended)
+
+A top-level `Makefile` at the project root delegates to the individual
+sub-project makefiles. Run it from the workspace root in IBM i PASE:
+
+```text
+make [target] [TARGET_LIB=<lib>] [SOURCE_LIB=<lib>] [VERBOSE=1]
+
+Targets:
+  all    Build LLMRPG then LLMCOBOL sequentially (default)
+  rpg    Build LLMRPG only
+  cbl    Build LLMCOBOL only
+  clean  Delete compiled objects from TARGET_LIB in both projects
+  help   Show help
+
+Options:
+  TARGET_LIB=<lib>  Library to compile into (default: DBSDK_DEMO)
+  SOURCE_LIB=<lib>  Library for DSPF staging (default: TARGET_LIB)
+  VERBOSE=1         Show full cl/system output
+
+Examples:
+  make
+  make rpg TARGET_LIB=MYLIB VERBOSE=1
+  make cbl TARGET_LIB=MYLIB
+  make clean TARGET_LIB=MYLIB
+```
+
+Variable overrides are forwarded automatically to the sub-makefiles. Each
+sub-project can also be built independently by running `make` inside its own
+directory.
+
+**Prerequisites:** `TARGET_LIB` and `SOURCE_LIB` must exist on IBM i; `DBSDK_V1`
+must be on the library list.
+
+### Per-project builds
+
+Each sub-project has its own `Makefile` with additional fine-grained targets
+(e.g. `dspf`, `rpgle`, `cbl`). See the individual file sections below for
+details.
 
 ---
 
@@ -187,16 +232,17 @@ on the library list.
 
 ## Running the Program
 
-After building with `make` (in either or both `src/LLMRPG` or `src/LLMCOBOL`):
+After building with `make` from the project root (or from inside `src/LLMRPG` /
+`src/LLMCOBOL`), call the program on IBM i.
 
-for the RPG version:
+For the RPG version:
 
 ```text
 ADDLIBLE DBSDK_DEMO
 CALL PGM(DBSDK_DEMO/LLMRPG)
 ```
 
-or for the COBOL version:
+For the COBOL version:
 
 ```text
 ADDLIBLE DBSDK_DEMO
