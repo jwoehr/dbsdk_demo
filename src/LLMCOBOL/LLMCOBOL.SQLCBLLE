@@ -1065,19 +1065,19 @@
                    SET :WS-L-MODEL = (
                        VALUES dbsdk_v1.openai_compatible_getmodel())
                END-EXEC
-      *        DBG: confirm job-globals before calling generate
-               STRING 'DBG OAI mdl=['
-                      FUNCTION TRIM(WS-L-MODEL)
-                      '] srvr=['
-                      FUNCTION TRIM(WS-L-SERVER(1:40))
-                      ']'
-                   DELIMITED SIZE INTO WS-MSG-TEXT
-               PERFORM SEND-PROGRAM-MESSAGE
-               STRING 'DBG prompt=['
-                      FUNCTION TRIM(DSP-PROMPT(1:50))
-                      ']'
-                   DELIMITED SIZE INTO WS-MSG-TEXT
-               PERFORM SEND-PROGRAM-MESSAGE
+      * DBG: confirm job-globals before calling generate
+      *             STRING 'DBG OAI mdl=['
+      *                    FUNCTION TRIM(WS-L-MODEL)
+      *                    '] srvr=['
+      *                    FUNCTION TRIM(WS-L-SERVER(1:40))
+      *                    ']'
+      *                 DELIMITED SIZE INTO WS-MSG-TEXT
+      *             PERFORM SEND-PROGRAM-MESSAGE
+      *             STRING 'DBG prompt=['
+      *                    FUNCTION TRIM(DSP-PROMPT(1:50))
+      *                    ']'
+      *                 DELIMITED SIZE INTO WS-MSG-TEXT
+      *             PERFORM SEND-PROGRAM-MESSAGE
                EXEC SQL
                    SET :WS-LLM-RESPONSE = (
                        VALUES dbsdk_v1.openai_compatible_chat_generate(
@@ -1085,13 +1085,13 @@
                            :WS-OPT-EMPTY))
                END-EXEC
       *        DBG: report SQLCODE from generate call
-               MOVE SQLCODE      TO WS-STKE-VAL
-               MOVE WS-STKE-VAL  TO WS-PORT-EDIT
-               STRING 'DBG OAI generate SQLCODE=['
-                      FUNCTION TRIM(WS-PORT-EDIT)
-                      ']'
-                   DELIMITED SIZE INTO WS-MSG-TEXT
-               PERFORM SEND-PROGRAM-MESSAGE
+      *             MOVE SQLCODE      TO WS-STKE-VAL
+      *             MOVE WS-STKE-VAL  TO WS-PORT-EDIT
+      *             STRING 'DBG OAI generate SQLCODE=['
+      *                    FUNCTION TRIM(WS-PORT-EDIT)
+      *                    ']'
+      *                 DELIMITED SIZE INTO WS-MSG-TEXT
+      *             PERFORM SEND-PROGRAM-MESSAGE
            ELSE
                EXEC SQL
                    SET :WS-L-PROTOCOL = (
