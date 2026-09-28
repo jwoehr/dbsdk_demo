@@ -45,6 +45,8 @@
      A                                      COLOR(BLU)
      A                                 22 12'F4=Config'
      A                                      COLOR(BLU)
+     A                                 22 24'F12=Clear'
+     A                                      COLOR(BLU)
      A*===============================================================
      A* CFGSCRN - backend selector (first config screen)
      A*===============================================================

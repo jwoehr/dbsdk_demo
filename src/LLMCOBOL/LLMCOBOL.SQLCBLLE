@@ -373,6 +373,9 @@
                        MOVE 'Y' TO WS-EXIT-FLAG
                    WHEN WS-INDICATOR(4) = B'1'
                        PERFORM EDIT-CONFIG
+                   WHEN WS-INDICATOR(12) = B'1'
+                       MOVE SPACES TO IN-PROMPT
+                       MOVE SPACES TO IN-RESPONSE
                    WHEN AID-ENTER
                        MOVE SPACES TO WS-MSG-TEXT
                        PERFORM CALL-LLM
