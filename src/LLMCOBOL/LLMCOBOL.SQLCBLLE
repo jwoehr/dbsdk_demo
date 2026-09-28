@@ -1099,30 +1099,44 @@
       *    ---- Load 78-char lines into the subfile ----
            MOVE 1                    TO WS-RESP-OFFSET
            MOVE WS-LLM-RESPONSE-LEN TO WS-RESP-REMAIN
-           PERFORM UNTIL WS-RESP-REMAIN <= 0
-               IF WS-RESP-REMAIN >= 78
-                   MOVE 78 TO WS-RESP-CHUNK
-               ELSE
-                   MOVE WS-RESP-REMAIN TO WS-RESP-CHUNK
-               END-IF
-               MOVE SPACES TO WS-RESP-LINE
-               MOVE WS-LLM-RESPONSE-DATA(
-                        WS-RESP-OFFSET : WS-RESP-CHUNK)
-                   TO WS-RESP-LINE
+
+           IF WS-RESP-REMAIN = 0
+               MOVE '(No response returned)' TO WS-RESP-LINE
                MOVE SPACES TO RESPSFL-REC
                MOVE WS-RESP-LINE TO RESP-LINE
-      *        RELATIVE KEY drives the subfile slot; use WS-RRN2 as
-      *        the counter then assign to WS-RRN1 before WRITE SUBFILE.
-               MOVE WS-RRN2 TO WS-RRN1
+               MOVE 1 TO WS-RRN1
                WRITE SUBFILE LLMDSPF-RECORD FROM RESPSFL-REC
                    FORMAT IS 'RESPSFL'
                    INDICATORS ARE WS-INDICATORS-AREA
                    INVALID KEY CONTINUE
                END-WRITE
-               ADD WS-RESP-CHUNK TO WS-RESP-OFFSET
-               SUBTRACT WS-RESP-CHUNK FROM WS-RESP-REMAIN
-               ADD 1 TO WS-RRN2
-           END-PERFORM
+               MOVE 2 TO WS-RRN2
+           ELSE
+               PERFORM UNTIL WS-RESP-REMAIN <= 0
+                   IF WS-RESP-REMAIN >= 78
+                       MOVE 78 TO WS-RESP-CHUNK
+                   ELSE
+                       MOVE WS-RESP-REMAIN TO WS-RESP-CHUNK
+                   END-IF
+                   MOVE SPACES TO WS-RESP-LINE
+                   MOVE WS-LLM-RESPONSE-DATA(
+                            WS-RESP-OFFSET : WS-RESP-CHUNK)
+                       TO WS-RESP-LINE
+                   MOVE SPACES TO RESPSFL-REC
+                   MOVE WS-RESP-LINE TO RESP-LINE
+      *        RELATIVE KEY drives the subfile slot; use WS-RRN2 as
+      *        the counter then assign to WS-RRN1 before WRITE SUBFILE.
+                   MOVE WS-RRN2 TO WS-RRN1
+                   WRITE SUBFILE LLMDSPF-RECORD FROM RESPSFL-REC
+                       FORMAT IS 'RESPSFL'
+                       INDICATORS ARE WS-INDICATORS-AREA
+                       INVALID KEY CONTINUE
+                   END-WRITE
+                   ADD WS-RESP-CHUNK TO WS-RESP-OFFSET
+                   SUBTRACT WS-RESP-CHUNK FROM WS-RESP-REMAIN
+                   ADD 1 TO WS-RRN2
+               END-PERFORM
+           END-IF
 
       *    ---- Mark end-of-subfile ----
            MOVE X'F1' TO WS-IND-BYTES(9:1)

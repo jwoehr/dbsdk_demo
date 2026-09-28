@@ -16,8 +16,6 @@
      A                                      INDARA
      A*                                     function keys used
      A                                      CA03(03) CA04(04) CF06(06) CA12(12)
-     A                                      PAGEUP(13)
-     A                                      PAGEDOWN(14)
      A*                                     include remaining keys to prevent
      A*                                     keyboard lockup
      A                                      CA01 CA02 CA05 CA07 CA08 CF09 CA10
@@ -176,7 +174,7 @@
      A            P_TEXT        70A  O  6  5
      A*----------------------------------------------------------------
      A          R PROMPTCTL                 SFLCTL(PROMPTSFL)
-     A                                      SFLSIZ(0100)
+     A                                      SFLSIZ(1000)
      A                                      SFLPAG(0010)
      A                                      OVERLAY
      A  01                                  SFLDSP
@@ -224,7 +222,7 @@
      A  09                                  SFLDSP
      A  10                                  SFLDSPCTL
      A N10                                  SFLCLR
-     A  11                                  SFLEND
+     A  11                                  SFLEND(*MORE)
      A            R_RCDNBR       4S 0H      SFLRCDNBR
      A                                  2  2'Response: F12/PgUp/PgDn'
      A                                      COLOR(WHT)

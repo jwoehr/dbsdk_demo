@@ -29,7 +29,7 @@ end-ds;
 dcl-ds  dspf_inds;
     sfl_dsp        ind  pos(1);
     sfl_dspCtl     ind  pos(2);
-    sfl_end        ind  pos(3);
+    sfl_end        ind  pos(40);
     // Response subfile indicators: 9=display, 10=displayCtl, 11=end
     resp_dsp       ind  pos(9);
     resp_dspCtl    ind  pos(10);
@@ -825,20 +825,26 @@ dcl-proc showResponse;
     remaining = %len(in_response);
     offset    = 1;
 
-    dow remaining > 0;
-        if remaining >= LINE_WIDTH;
-            chunk     = %subst(in_response : offset : LINE_WIDTH);
-            offset    += LINE_WIDTH;
-            remaining -= LINE_WIDTH;
-        else;
-            chunk     = %subst(in_response : offset : remaining);
-            remaining  = 0;
-        endif;
-
+    if remaining = 0;
         rrn2      += 1;
-        RESP_LINE  = chunk;
+        RESP_LINE  = '(No response returned)';
         write RESPSFL;
-    enddo;
+    else;
+        dow remaining > 0;
+            if remaining >= LINE_WIDTH;
+                chunk     = %subst(in_response : offset : LINE_WIDTH);
+                offset    += LINE_WIDTH;
+                remaining -= LINE_WIDTH;
+            else;
+                chunk     = %subst(in_response : offset : remaining);
+                remaining  = 0;
+            endif;
+
+            rrn2      += 1;
+            RESP_LINE  = chunk;
+            write RESPSFL;
+        enddo;
+    endif;
 
     resp_end  = *on;
 
@@ -926,7 +932,11 @@ dcl-proc callLLM;
         SendProgramMessage('SQL Error: ' + %char(sqlcode));
     endif;
 
-    rtnVal = llmResponse_DATA;
+    if llmResponse_LEN > 0;
+        rtnVal = %subst(llmResponse_DATA : 1 : llmResponse_LEN);
+    else;
+        rtnVal = '';
+    endif;
     return rtnVal;
 end-proc callLLM;
 
