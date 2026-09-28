@@ -1,8 +1,9 @@
 #===============================================================================
 # LLMRPG - LLM Backend Selection Demo
 #===============================================================================
-# Compiles LLMDSPF.DSPF and LLMRPG.SQLRPGLE from the IFS into an IBM i library.
-# The DSPF is staged through a source physical file (QDDSSRC) in SOURCE_LIB.
+# Compiles LLMDSPF.DSPF (from src/share) and LLMRPG.SQLRPGLE from the IFS into
+# an IBM i library.  The DSPF is staged through a source physical file (QDDSSRC)
+# in SOURCE_LIB.
 # QTEMP cannot be used for staging because CPYFRMSTMF requires a real library
 # addressable via /QSYS.LIB/<lib>.LIB/... from a PASE multithreaded job.
 #
@@ -59,6 +60,9 @@ STAGE_FILE  := QDDSSRC
 DSPF_NAME  := LLMDSPF
 RPGLE_NAME := LLMRPG
 
+# Shared DSPF source (lives in src/share, one level up from this Makefile)
+DSPF_SRC   := $(BASE_DIR)/../share/$(DSPF_NAME).DSPF
+
 .PHONY: all dspf rpgle clean help
 
 #-------------------------------------------------------------------------------
@@ -90,7 +94,7 @@ summary:
 dspf:
 	@printf "$(YELLOW)>>> Compiling $(DSPF_NAME).DSPF ...$(NC)\n"
 	@cl "CRTSRCPF FILE($(SOURCE_LIB)/$(STAGE_FILE)) RCDLEN(112)" $(REDIRECT) || true
-	@if cl "CPYFRMSTMF FROMSTMF('$(BASE_DIR)/$(DSPF_NAME).DSPF') TOMBR('/QSYS.LIB/$(SOURCE_LIB).LIB/$(STAGE_FILE).FILE/$(DSPF_NAME).MBR') MBROPT(*REPLACE)" $(REDIRECT); then \
+	@if cl "CPYFRMSTMF FROMSTMF('$(DSPF_SRC)') TOMBR('/QSYS.LIB/$(SOURCE_LIB).LIB/$(STAGE_FILE).FILE/$(DSPF_NAME).MBR') MBROPT(*REPLACE)" $(REDIRECT); then \
 		if cl "CRTDSPF FILE($(TARGET_LIB)/$(DSPF_NAME)) SRCFILE($(SOURCE_LIB)/$(STAGE_FILE)) SRCMBR($(DSPF_NAME)) GENLVL(30)" $(REDIRECT); then \
 			printf "$(GREEN)✓ $(DSPF_NAME) compiled successfully$(NC)\n"; \
 		else \
