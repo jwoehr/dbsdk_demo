@@ -109,8 +109,6 @@ dou keyPressed = F3;
     endif;
     RUN_URL = %trim(RUN_URL) + ':' + %char(port);
     RUN_MODL = model;
-    RESPONSE = *blanks;
-
     write MSGSFLC;
     exfmt RUNSCRN;
     ClearProgramMessages(1);
@@ -123,7 +121,6 @@ dou keyPressed = F3;
 
     elseif keyPressed = F12;
         PROMPT   = *blanks;
-        RESPONSE = *blanks;
 
     elseif keyPressed = ENTER;
         showResponse( callLLM( PROMPT ) );

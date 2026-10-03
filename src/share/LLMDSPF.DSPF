@@ -41,9 +41,6 @@
      A                                      COLOR(WHT)
      A            PROMPT       500A  B  7 10WRDWRAP
      A                                      CHECK(LC)
-     A                                 15  4'Resp:'
-     A                                      COLOR(WHT)
-     A            RESPONSE     500A  B 15 10WRDWRAP
      A                                 22  2'F3=Exit'
      A                                      COLOR(BLU)
      A                                 22 12'F4=Config'

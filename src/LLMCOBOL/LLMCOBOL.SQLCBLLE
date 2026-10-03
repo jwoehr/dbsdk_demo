@@ -54,12 +54,10 @@
            05  RUN-URL             PIC X(70).
            05  RUN-MODL            PIC X(70).
            05  DSP-PROMPT          PIC X(500).
-           05  RESPONSE            PIC X(500).
       *-- RUNSCRN READ buffer: only the B fields come back on input.
       *-- Output-only (O) fields RUN_BKND/RUN_URL/RUN_MODL are absent.
        01  RUNSCRN-INPUT-REC.
            05  IN-PROMPT           PIC X(500).
-           05  IN-RESPONSE         PIC X(500).
       *-- CFGSCRN: backend selector
        01  CFGSCRN-REC.
            05  CURREC              PIC X(10).
@@ -378,7 +376,6 @@
                WRITE LLMDSPF-RECORD FROM MSGSFLC-REC FORMAT IS 'MSGSFLC'
                    INDICATORS ARE WS-INDICATORS-AREA
                MOVE SPACES TO DSP-PROMPT
-               MOVE SPACES TO RESPONSE
                WRITE LLMDSPF-RECORD FROM RUNSCRN-REC FORMAT IS 'RUNSCRN'
                    INDICATORS ARE WS-INDICATORS-AREA
                READ LLMDSPF INTO RUNSCRN-INPUT-REC FORMAT IS 'RUNSCRN'
@@ -386,7 +383,6 @@
                    AT END CONTINUE
                END-READ
                MOVE IN-PROMPT   TO DSP-PROMPT
-               MOVE IN-RESPONSE TO RESPONSE
                PERFORM CLEAR-PROGRAM-MESSAGES
 
                EVALUATE TRUE
@@ -396,9 +392,7 @@
                        PERFORM EDIT-CONFIG
                    WHEN WS-INDICATOR(12) = B'1'
                        MOVE SPACES TO IN-PROMPT
-                       MOVE SPACES TO IN-RESPONSE
                        MOVE SPACES TO DSP-PROMPT
-                       MOVE SPACES TO RESPONSE
                    WHEN WS-INDICATOR(3)  = B'0'
                        AND WS-INDICATOR(4)  = B'0'
                        AND WS-INDICATOR(6)  = B'0'
