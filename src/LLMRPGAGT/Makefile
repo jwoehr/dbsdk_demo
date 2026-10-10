@@ -93,14 +93,19 @@ rpgle: bnddir
 	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
 	              COMMIT(*NONE) \
 	              DBGVIEW(*SOURCE) \
-	              TOSRCFILE(QTEMP/QSQLSRC) \
-	              COMPILEOPT('"'"'DFTACTGRP(*NO) ACTGRP(*NEW) TGTCCSID(*JOB) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) OPTION(*NOUNREF)'"'"') \
+	              OBJTYPE(*MODULE) \
+	              COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') \
 	              USRPRF(*OWNER) \
 	              RDB(*LOCAL) \
 	              DFTRDBCOL(DBSDK_V1) \
 	              CVTCCSID(*JOB) \
 	              SQLPATH(*LIBL) \
-	              GENLVL(30)" $(REDIRECT)' && \
+	              GENLVL(30)" $(REDIRECT); \
+	          cl "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
+	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
+	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
+	              ACTGRP(*NEW) \
+	              OPTION(*DUPPROC)" $(REDIRECT)' && \
 		printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n" || \
 		{ printf "$(RED)✗ CRTSQLRPGI failed for $(RPGLE_NAME)$(NC)\n"; exit 1; }
 
