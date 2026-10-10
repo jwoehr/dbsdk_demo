@@ -1,0 +1,14 @@
+src/LLMRPGAGT/Makefile
+  h_00d79582c3c048 124-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e65b455d20ee8c8220acb3e6f8cbe54cfba72031",
+  "prompts": {},
+  "humans": {
+    "h_00d79582c3c048": {
+      "author": "Jack Woehr <jwoehr@softwoehr.com>"
+    }
+  }
+}
