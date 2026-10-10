@@ -89,7 +89,7 @@ rpgle: bnddir
 	          cl "ADDLIBLE DBSDK_V1" $(REDIRECT); \
 	          cl "ADDLIBLE LIBHTTP" $(REDIRECT); \
 	          cl "ADDLIBLE YAJL" $(REDIRECT); \
-	          cl "SBMJOB CMD(CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
+	          cl "CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
 	              COMMIT(*NONE) \
 	              DBGVIEW(*SOURCE) \
@@ -99,14 +99,13 @@ rpgle: bnddir
 	              DFTRDBCOL(DBSDK_V1) \
 	              CVTCCSID(*JOB) \
 	              SQLPATH(*LIBL) \
-	              GENLVL(30)) JOB(SQLRPGI)" $(REDIRECT); \
-	          sleep 5; \
-	          cl "SBMJOB CMD(CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
+	              GENLVL(30)" $(REDIRECT); \
+	          cl "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
 	              USRPRF(*OWNER) \
 	              ACTGRP(*NEW) \
-	              OPTION(*DUPPROC)) JOB(CRTPGM)" $(REDIRECT)' && \
+	              OPTION(*DUPPROC)" $(REDIRECT)' && \
 		printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n" || \
 		{ printf "$(RED)✗ CRTSQLRPGI failed for $(RPGLE_NAME)$(NC)\n"; exit 1; }
 
@@ -121,13 +120,14 @@ bnddir:
 	@printf "$(YELLOW)>>> Creating binding directory $(TARGET_LIB)/$(RPGLE_NAME) ...$(NC)\n"
 	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
 	          cl "DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))" $(REDIRECT); \
-	          cl "SBMJOB CMD(CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') AUT(*LIBCRTAUT)) JOB(BNDDIR)" $(REDIRECT); \
-	          sleep 2; \
-	          cl "SBMJOB CMD(ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
+	          cl "CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
+	              TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') \
+	              AUT(*LIBCRTAUT)" $(REDIRECT); \
+	          cl "ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              OBJ((YAJL/YAJL *SRVPGM *DEFER) \
 	                  (YAJL/YAJLR4 *SRVPGM *DEFER) \
 	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) \
-	                  (LIBHTTP/EXPAT *SRVPGM *DEFER))) JOB(BNDDIRE)" $(REDIRECT)' && \
+	                  (LIBHTTP/EXPAT *SRVPGM *DEFER))" $(REDIRECT)' && \
 		printf "$(GREEN)✓ Binding directory created$(NC)\n" || \
 		{ printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
 
