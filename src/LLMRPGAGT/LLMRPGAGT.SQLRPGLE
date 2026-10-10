@@ -17,12 +17,8 @@
 // =============================================================================
 
 ctl-opt dftactgrp(*no) actgrp(*new)
-        option(*srcstmt : *nodebugio : *nounref);
-        
-/if not defined(BNDOPT_DUPPROC_SET)
-/define BNDOPT_DUPPROC_SET
-h bndopt(*DUPPROC)
-/endif
+        option(*srcstmt : *nodebugio : *nounref)
+        bnddir('QC2LE');
 
 // Five program parameters
 dcl-pi *n;
