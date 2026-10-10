@@ -118,11 +118,11 @@ bnddir:
 	              TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') \
 	              AUT(*LIBCRTAUT)" $(REDIRECT); \
 	          cl "ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              OBJ((YAJL/YAJL *SRVPGM *IMMED) \
-	                  (YAJL/YAJLR4 *SRVPGM *IMMED) \
-	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *IMMED) \
-	                  (LIBHTTP/EXPAT *SRVPGM *IMMED) \
-	                  (QSYS/QC2LE *BNDDIR *IMMED))" $(REDIRECT)' && \
+	              OBJ((YAJL/YAJL *SRVPGM *DEFER) \
+	                  (YAJL/YAJLR4 *SRVPGM *DEFER) \
+	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) \
+	                  (LIBHTTP/EXPAT *SRVPGM *DEFER) \
+	                  (QSYS/QC2LE *BNDDIR *DEFER))" $(REDIRECT)' && \
 		printf "$(GREEN)✓ Binding directory created$(NC)\n" || \
 		{ printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
 
