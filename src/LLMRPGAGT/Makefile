@@ -121,7 +121,8 @@ bnddir:
 	              OBJ((YAJL/YAJL *SRVPGM *IMMED) \
 	                  (YAJL/YAJLR4 *SRVPGM *IMMED) \
 	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *IMMED) \
-	                  (LIBHTTP/EXPAT *SRVPGM *IMMED))" $(REDIRECT)' && \
+	                  (LIBHTTP/EXPAT *SRVPGM *IMMED) \
+	                  (QSYS/QC2LE *BNDDIR *IMMED))" $(REDIRECT)' && \
 		printf "$(GREEN)✓ Binding directory created$(NC)\n" || \
 		{ printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
 
