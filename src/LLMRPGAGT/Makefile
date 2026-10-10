@@ -95,7 +95,6 @@ rpgle: bnddir
 	              DBGVIEW(*SOURCE) \
 	              OBJTYPE(*MODULE) \
 	              COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') \
-	              USRPRF(*OWNER) \
 	              RDB(*LOCAL) \
 	              DFTRDBCOL(DBSDK_V1) \
 	              CVTCCSID(*JOB) \
