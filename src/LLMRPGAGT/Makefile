@@ -93,7 +93,7 @@ rpgle: bnddir
 	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
 	              COMMIT(*NONE) \
 	              DBGVIEW(*SOURCE) \
-	              COMPILEOPT('"'"'DFTACTGRP(*NO) ACTGRP(*NEW) TGTCCSID(*JOB) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) OPTION(*DUPPROC *NOUNREF)'"'"') \
+	              COMPILEOPT('"'"'DFTACTGRP(*NO) ACTGRP(*NEW) TGTCCSID(*JOB) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) OPTION(*DUPPROC *NOUNREF) BNDOPT(*DUPPROC)'"'"') \
 	              USRPRF(*OWNER) \
 	              RDB(*LOCAL) \
 	              DFTRDBCOL(DBSDK_V1) \
