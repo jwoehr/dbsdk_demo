@@ -58,7 +58,7 @@ dcl-c  JS_ESC_TAB      x'E005';          // \t  (EBCDIC HT = x'05')
 // ---------------------------------------------------------------------------
 // PASE C prototypes — IFS log file (3-arg open with mode)
 // ---------------------------------------------------------------------------
-dcl-pr c_open3  int(10) extproc('open64');
+dcl-pr c_open3  int(10) extproc('open');
     path        pointer value options(*string);
     flags       int(10) value;
     mode        uns(10) value;
@@ -82,7 +82,7 @@ dcl-c  S_IROTH    4;
 // ---------------------------------------------------------------------------
 // PASE C prototypes — IFS stream file read (skills file)
 // ---------------------------------------------------------------------------
-dcl-pr c_fopen  pointer extproc('fopen64');
+dcl-pr c_fopen  pointer extproc('fopen');
     path        pointer value options(*string);
     mode        pointer value options(*string);
 end-pr;
