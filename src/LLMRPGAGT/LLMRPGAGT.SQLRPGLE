@@ -30,8 +30,8 @@ end-pi;
 // ---------------------------------------------------------------------------
 // HTTPAPI / YAJL includes
 // ---------------------------------------------------------------------------
-/COPY LIBHTTP/QRPGLESRC,HTTPAPI_H
-/COPY YAJL/QRPGLESRC,YAJL_H
+/INCLUDE LIBHTTP/QRPGLESRC,HTTPAPI_H
+/INCLUDE YAJL/QRPGLESRC,YAJL_H
 
 // ---------------------------------------------------------------------------
 // Constants
