@@ -89,7 +89,7 @@ rpgle: bnddir
 	          cl "ADDLIBLE DBSDK_V1" $(REDIRECT); \
 	          cl "ADDLIBLE LIBHTTP" $(REDIRECT); \
 	          cl "ADDLIBLE YAJL" $(REDIRECT); \
-	          cl "CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
+	          cl "SBMJOB CMD(CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
 	              COMMIT(*NONE) \
 	              DBGVIEW(*SOURCE) \
@@ -99,7 +99,8 @@ rpgle: bnddir
 	              DFTRDBCOL(DBSDK_V1) \
 	              CVTCCSID(*JOB) \
 	              SQLPATH(*LIBL) \
-	              GENLVL(30)" $(REDIRECT); \
+	              GENLVL(30)) JOB(SQLRPGI)" $(REDIRECT); \
+	          sleep 5; \
 	          cl "SBMJOB CMD(CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
