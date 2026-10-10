@@ -1,0 +1,16 @@
+Makefile
+  h_00d79582c3c048 8,11-12,23,26,28,39-41,43,48,57,60-61,71
+README.md
+  h_00d79582c3c048 51-53,61-67,291-323
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "86bd2a2fc57228b3e76ed6697e644f7e0fc86049",
+  "prompts": {},
+  "humans": {
+    "h_00d79582c3c048": {
+      "author": "Jack Woehr <jwoehr@softwoehr.com>"
+    }
+  }
+}
