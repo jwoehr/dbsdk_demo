@@ -121,7 +121,8 @@ bnddir:
 	              OBJ((YAJL/YAJL *SRVPGM *DEFER) \
 	                  (YAJL/YAJLR4 *SRVPGM *DEFER) \
 	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) \
-	                  (LIBHTTP/EXPAT *SRVPGM *DEFER))" $(REDIRECT)' && \
+	                  (LIBHTTP/EXPAT *SRVPGM *DEFER) \
+	                  (QSYS/QSQCLI *SRVPGM *DEFER))" $(REDIRECT)' && \
 		printf "$(GREEN)✓ Binding directory created$(NC)\n" || \
 		{ printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
 
