@@ -16,8 +16,7 @@
 //          IBM Bob (AI pair programmer)
 // =============================================================================
 
-ctl-opt dftactgrp(*no) actgrp(*new)
-        option(*srcstmt : *nodebugio : *nounref);
+ctl-opt option(*srcstmt : *nodebugio : *nounref);
 
 // Five program parameters
 dcl-pi *n;
