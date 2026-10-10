@@ -85,29 +85,28 @@ summary:
 #-------------------------------------------------------------------------------
 rpgle: bnddir
 	@printf "$(YELLOW)>>> Compiling $(RPGLE_NAME).SQLRPGLE ...$(NC)\n"
-	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
-	          cl "ADDLIBLE DBSDK_V1" $(REDIRECT); \
-	          cl "ADDLIBLE LIBHTTP" $(REDIRECT); \
-	          cl "ADDLIBLE YAJL" $(REDIRECT); \
-	          cl "CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
-	              COMMIT(*NONE) \
-	              DBGVIEW(*SOURCE) \
-	              OBJTYPE(*MODULE) \
-	              COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') \
-	              RDB(*LOCAL) \
-	              DFTRDBCOL(DBSDK_V1) \
-	              CVTCCSID(*JOB) \
-	              SQLPATH(*LIBL) \
-	              GENLVL(30)" $(REDIRECT); \
-	          cl "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
-	              USRPRF(*OWNER) \
-	              ACTGRP(*NEW) \
-	              OPTION(*DUPPROC)" $(REDIRECT)' && \
-		printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n" || \
-		{ printf "$(RED)✗ CRTSQLRPGI failed for $(RPGLE_NAME)$(NC)\n"; exit 1; }
+	@system -K 'ADDLIBLE $(TARGET_LIB)' $(REDIRECT) || true
+	@system -K 'ADDLIBLE DBSDK_V1' $(REDIRECT) || true
+	@system -K 'ADDLIBLE LIBHTTP' $(REDIRECT) || true
+	@system -K 'ADDLIBLE YAJL' $(REDIRECT) || true
+	@system -K 'CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
+	    SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
+	    COMMIT(*NONE) \
+	    DBGVIEW(*SOURCE) \
+	    OBJTYPE(*MODULE) \
+	    COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') \
+	    RDB(*LOCAL) \
+	    DFTRDBCOL(DBSDK_V1) \
+	    CVTCCSID(*JOB) \
+	    SQLPATH(*LIBL) \
+	    GENLVL(30)' $(REDIRECT) || { printf "$(RED)✗ CRTSQLRPGI failed$(NC)\n"; exit 1; }
+	@system -K 'CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
+	    MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
+	    BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
+	    USRPRF(*OWNER) \
+	    ACTGRP(*NEW) \
+	    OPTION(*DUPPROC)' $(REDIRECT) || { printf "$(RED)✗ CRTPGM failed$(NC)\n"; exit 1; }
+	@printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n"
 
 #-------------------------------------------------------------------------------
 # Binding directory — create in TARGET_LIB with library-qualified srvpgm entries
@@ -118,18 +117,11 @@ rpgle: bnddir
 #-------------------------------------------------------------------------------
 bnddir:
 	@printf "$(YELLOW)>>> Creating binding directory $(TARGET_LIB)/$(RPGLE_NAME) ...$(NC)\n"
-	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
-	          cl "DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))" $(REDIRECT); \
-	          cl "CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') \
-	              AUT(*LIBCRTAUT)" $(REDIRECT); \
-	          cl "ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              OBJ((YAJL/YAJL *SRVPGM *DEFER) \
-	                  (YAJL/YAJLR4 *SRVPGM *DEFER) \
-	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) \
-	                  (LIBHTTP/EXPAT *SRVPGM *DEFER))" $(REDIRECT)' && \
-		printf "$(GREEN)✓ Binding directory created$(NC)\n" || \
-		{ printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
+	@system -K 'ADDLIBLE $(TARGET_LIB)' $(REDIRECT) || true
+	@system -K 'DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
+	@system -K 'CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') AUT(*LIBCRTAUT)' $(REDIRECT) || { printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
+	@system -K 'ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) OBJ((YAJL/YAJL *SRVPGM *DEFER) (YAJL/YAJLR4 *SRVPGM *DEFER) (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) (LIBHTTP/EXPAT *SRVPGM *DEFER))' $(REDIRECT) || { printf "$(RED)✗ ADDBNDDIRE failed$(NC)\n"; exit 1; }
+	@printf "$(GREEN)✓ Binding directory created$(NC)\n"
 
 #-------------------------------------------------------------------------------
 # Clean — delete compiled objects from TARGET_LIB
