@@ -48,8 +48,9 @@ and install either or both.
 dbsdk_demo/
 ├── README.md                        This file
 ├── LICENSE                          Apache 2.0 license text
-├── Makefile                         Top-level build script — builds both projects
-├── llmrpg-plan.md                   Design notes and planning document
+├── Makefile                         Top-level build script — builds all projects
+├── llmrpg-plan.md                   Design notes and planning document (LLMRPG)
+├── llmrpgagt-plan.md                Design notes and planning document (LLMRPGAGT)
 └── src/
     ├── share/
     │   └── LLMDSPF.DSPF             DDS display file — shared by LLMRPG and LLMCOBOL
@@ -57,9 +58,13 @@ dbsdk_demo/
     │   ├── Makefile                 Build script — compiles DSPF and SQLRPGLE on IBM i
     │   ├── LLMRPG.SQLRPGLE          ILE RPG program — main application logic
     │   └── gemini_openai_compat.sh  Shell example — curl call to Gemini OpenAI-compat API
-    └── LLMCOBOL/
-        ├── Makefile                 Build script — compiles DSPF and SQLCBLLE on IBM i
-        └── LLMCOBOL.SQLCBLLE        ILE COBOL program — main application logic
+    ├── LLMCOBOL/
+    │   ├── Makefile                 Build script — compiles DSPF and SQLCBLLE on IBM i
+    │   └── LLMCOBOL.SQLCBLLE        ILE COBOL program — main application logic
+    └── LLMRPGAGT/
+        ├── Makefile                 Build script — compiles SQLRPGLE agent on IBM i
+        ├── LLMRPGAGT.SQLRPGLE       ILE RPG ReAct agent — HTTP server + LLM loop
+        └── README.md                Full documentation for LLMRPGAGT
 ```
 
 ---
@@ -283,3 +288,36 @@ was unable to solve a given problem, I tried another, round and round.
 - [Kilo Code](https://kilo.ai/)
 - [Zoo Code](https://www.zoocode.dev/)
 - [Cline](https://cline.bot/)
+
+---
+
+## LLMRPGAGT
+
+`LLMRPGAGT` is an ILE SQL RPG ReAct (Reason-Act) agent that runs as a persistent
+HTTP server job on IBM i. It accepts `POST /query` requests containing a user
+query, drives a multi-step reasoning loop against the configured LLM backend,
+optionally calls tools on a connected MCP server, and returns a JSON response —
+either a final answer, a clarification question (blocking round-trip via session
+ID), or an error.
+
+At startup the program loads an optional Markdown skills file as system-prompt
+context and discovers available tools from an optional MCP server via JSON-RPC
+2.0 `tools/list`. All LLM connectivity uses the same `DBSDK_V1` SQL function
+pattern as `LLMRPG` and `LLMCOBOL`.
+
+For full documentation including argument reference, HTTP API schemas, ReAct
+grammar, skills file format, MCP integration, session management, log format,
+external dependencies, and build/run instructions, see
+[src/LLMRPGAGT/README.md](src/LLMRPGAGT/README.md).
+
+Build with:
+
+```text
+make agt [TARGET_LIB=<lib>]
+```
+
+Run with:
+
+```text
+CALL PGM(DBSDK_DEMO/LLMRPGAGT) PARM('openai_compatible' '0.0.0.0:8080')
+```

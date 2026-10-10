@@ -5,10 +5,11 @@
 # still be built independently by running make inside its own directory.
 #
 # Usage: make [target] [TARGET_LIB=<lib>] [VERBOSE=1]
-#   make all    - Build LLMRPG then LLMCOBOL (default)
+#   make all    - Build LLMRPG, LLMCOBOL, and LLMRPGAGT (default)
 #   make rpg    - Build LLMRPG only
 #   make cbl    - Build LLMCOBOL only
-#   make clean  - Clean both sub-projects
+#   make agt    - Build LLMRPGAGT only
+#   make clean  - Clean all sub-projects
 #   make help   - Show this help message
 #
 # Options:
@@ -19,12 +20,12 @@
 
 SHELL := /bin/bash
 
-.PHONY: all rpg cbl clean help
+.PHONY: all rpg cbl agt clean help
 
 #-------------------------------------------------------------------------------
-# Default target — sequential: RPG first, then COBOL
+# Default target — sequential: RPG, COBOL, then Agent
 #-------------------------------------------------------------------------------
-all: rpg cbl
+all: rpg cbl agt
 
 #-------------------------------------------------------------------------------
 # Per-project targets
@@ -35,12 +36,16 @@ rpg:
 cbl:
 	$(MAKE) -C src/LLMCOBOL
 
+agt:
+	$(MAKE) -C src/LLMRPGAGT
+
 #-------------------------------------------------------------------------------
-# Clean both sub-projects
+# Clean all sub-projects
 #-------------------------------------------------------------------------------
 clean:
 	$(MAKE) -C src/LLMRPG clean
 	$(MAKE) -C src/LLMCOBOL clean
+	$(MAKE) -C src/LLMRPGAGT clean
 
 #-------------------------------------------------------------------------------
 # Help
@@ -49,10 +54,11 @@ help:
 	@printf "Top-level Makefile — LLM Backend Selection Demo\n\n"
 	@printf "Usage: make [target] [TARGET_LIB=<lib>] [VERBOSE=1]\n\n"
 	@printf "Targets:\n"
-	@printf "  all    - Build LLMRPG then LLMCOBOL sequentially (default)\n"
+	@printf "  all    - Build LLMRPG, LLMCOBOL, and LLMRPGAGT sequentially (default)\n"
 	@printf "  rpg    - Build LLMRPG only\n"
 	@printf "  cbl    - Build LLMCOBOL only\n"
-	@printf "  clean  - Delete compiled objects from TARGET_LIB in both projects\n"
+	@printf "  agt    - Build LLMRPGAGT only\n"
+	@printf "  clean  - Delete compiled objects from TARGET_LIB in all projects\n"
 	@printf "  help   - Show this help\n\n"
 	@printf "Options:\n"
 	@printf "  TARGET_LIB=<lib>  Library to compile into (default: DBSDK_DEMO)\n"
@@ -62,6 +68,7 @@ help:
 	@printf "  make\n"
 	@printf "  make rpg TARGET_LIB=MYLIB VERBOSE=1\n"
 	@printf "  make cbl TARGET_LIB=MYLIB\n"
+	@printf "  make agt TARGET_LIB=MYLIB\n"
 	@printf "  make clean TARGET_LIB=MYLIB\n"
 
 # Made with Bob
