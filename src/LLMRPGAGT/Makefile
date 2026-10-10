@@ -85,11 +85,11 @@ summary:
 #-------------------------------------------------------------------------------
 rpgle: bnddir
 	@printf "$(YELLOW)>>> Compiling $(RPGLE_NAME).SQLRPGLE ...$(NC)\n"
-	@bash -c 'system "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
-	          system "ADDLIBLE DBSDK_V1" $(REDIRECT); \
-	          system "ADDLIBLE LIBHTTP" $(REDIRECT); \
-	          system "ADDLIBLE YAJL" $(REDIRECT); \
-	          system "CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
+	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
+	          cl "ADDLIBLE DBSDK_V1" $(REDIRECT); \
+	          cl "ADDLIBLE LIBHTTP" $(REDIRECT); \
+	          cl "ADDLIBLE YAJL" $(REDIRECT); \
+	          cl "CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
 	              COMMIT(*NONE) \
 	              DBGVIEW(*SOURCE) \
@@ -100,12 +100,12 @@ rpgle: bnddir
 	              CVTCCSID(*JOB) \
 	              SQLPATH(*LIBL) \
 	              GENLVL(30)" $(REDIRECT); \
-	          system "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
+	          cl "SBMJOB CMD(CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
 	              USRPRF(*OWNER) \
 	              ACTGRP(*NEW) \
-	              OPTION(*DUPPROC)" $(REDIRECT)' && \
+	              OPTION(*DUPPROC)) JOB(CRTPGM)" $(REDIRECT)' && \
 		printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n" || \
 		{ printf "$(RED)✗ CRTSQLRPGI failed for $(RPGLE_NAME)$(NC)\n"; exit 1; }
 
@@ -118,16 +118,15 @@ rpgle: bnddir
 #-------------------------------------------------------------------------------
 bnddir:
 	@printf "$(YELLOW)>>> Creating binding directory $(TARGET_LIB)/$(RPGLE_NAME) ...$(NC)\n"
-	@bash -c 'system "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
-	          system "DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))" $(REDIRECT); \
-	          system "CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
-	              TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') \
-	              AUT(*LIBCRTAUT)" $(REDIRECT); \
-	          system "ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
+	@bash -c 'cl "ADDLIBLE $(TARGET_LIB)" $(REDIRECT); \
+	          cl "DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))" $(REDIRECT); \
+	          cl "SBMJOB CMD(CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') AUT(*LIBCRTAUT)) JOB(BNDDIR)" $(REDIRECT); \
+	          sleep 2; \
+	          cl "SBMJOB CMD(ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              OBJ((YAJL/YAJL *SRVPGM *DEFER) \
 	                  (YAJL/YAJLR4 *SRVPGM *DEFER) \
 	                  (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) \
-	                  (LIBHTTP/EXPAT *SRVPGM *DEFER))" $(REDIRECT)' && \
+	                  (LIBHTTP/EXPAT *SRVPGM *DEFER))) JOB(BNDDIRE)" $(REDIRECT)' && \
 		printf "$(GREEN)✓ Binding directory created$(NC)\n" || \
 		{ printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
 
