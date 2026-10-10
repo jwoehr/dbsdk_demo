@@ -93,6 +93,7 @@ rpgle: bnddir
 	              SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') \
 	              COMMIT(*NONE) \
 	              DBGVIEW(*SOURCE) \
+	              TOSRCFILE(QTEMP/QSQLSRC) \
 	              COMPILEOPT('"'"'DFTACTGRP(*NO) ACTGRP(*NEW) TGTCCSID(*JOB) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) OPTION(*NOUNREF)'"'"') \
 	              USRPRF(*OWNER) \
 	              RDB(*LOCAL) \
