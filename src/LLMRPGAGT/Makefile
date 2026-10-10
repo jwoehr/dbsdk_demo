@@ -103,6 +103,7 @@ rpgle: bnddir
 	          cl "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
+	              USRPRF(*OWNER) \
 	              ACTGRP(*NEW) \
 	              OPTION(*DUPPROC)" $(REDIRECT)' && \
 		printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n" || \
