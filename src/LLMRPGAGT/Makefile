@@ -85,12 +85,12 @@ summary:
 #-------------------------------------------------------------------------------
 rpgle: bnddir
 	@printf "$(YELLOW)>>> Compiling $(RPGLE_NAME).SQLRPGLE ...$(NC)\n"
-	@system -K "ADDLIBLE LIB($(TARGET_LIB))" $(REDIRECT) || true
-	@system -K "ADDLIBLE LIB(DBSDK_V1)" $(REDIRECT) || true
-	@system -K "ADDLIBLE LIB(LIBHTTP)" $(REDIRECT) || true
-	@system -K "ADDLIBLE LIB(YAJL)" $(REDIRECT) || true
-	@system -K "CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) SRCSTMF('$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE') COMMIT(*NONE) DBGVIEW(*SOURCE) OBJTYPE(*MODULE) COMPILEOPT('TGTCCSID(*JOB) OPTION(*NOUNREF)') RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) GENLVL(30)" $(REDIRECT) || { printf "$(RED)✗ CRTSQLRPGI failed$(NC)\n"; exit 1; }
-	@system -K "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) MODULE($(TARGET_LIB)/$(RPGLE_NAME)) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) USRPRF(*OWNER) ACTGRP(*NEW) OPTION(*DUPPROC)" $(REDIRECT) || { printf "$(RED)✗ CRTPGM failed$(NC)\n"; exit 1; }
+	@system -K 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true
+	@system -K 'ADDLIBLE LIB(DBSDK_V1)' $(REDIRECT) || true
+	@system -K 'ADDLIBLE LIB(LIBHTTP)' $(REDIRECT) || true
+	@system -K 'ADDLIBLE LIB(YAJL)' $(REDIRECT) || true
+	@system -K 'CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') COMMIT(*NONE) DBGVIEW(*SOURCE) OBJTYPE(*MODULE) COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) GENLVL(30)' $(REDIRECT) || { printf "$(RED)✗ CRTSQLRPGI failed$(NC)\n"; exit 1; }
+	@system -K 'CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) MODULE($(TARGET_LIB)/$(RPGLE_NAME)) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) USRPRF(*OWNER) ACTGRP(*NEW) OPTION(*DUPPROC)' $(REDIRECT) || { printf "$(RED)✗ CRTPGM failed$(NC)\n"; exit 1; }
 	@printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n"
 
 #-------------------------------------------------------------------------------
