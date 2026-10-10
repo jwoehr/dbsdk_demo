@@ -100,7 +100,7 @@ rpgle: bnddir
 	              CVTCCSID(*JOB) \
 	              SQLPATH(*LIBL) \
 	              GENLVL(30)" $(REDIRECT); \
-	          cl "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
+	          system "CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              MODULE($(TARGET_LIB)/$(RPGLE_NAME)) \
 	              BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) \
 	              USRPRF(*OWNER) \
