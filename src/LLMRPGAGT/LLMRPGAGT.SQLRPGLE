@@ -17,8 +17,7 @@
 // =============================================================================
 
 ctl-opt dftactgrp(*no) actgrp(*new)
-        option(*srcstmt : *nodebugio : *nounref)
-        bnddir('QC2LE');
+        option(*srcstmt : *nodebugio : *nounref);
 
 // Five program parameters
 dcl-pi *n;
