@@ -20,6 +20,16 @@
              DCL        VAR(&LOGPATH)  TYPE(*CHAR) LEN(1000)
 
 /*---------------------------------------------------------------------------*/
+/* Ensure LIBHTTP and YAJL are on the library list so that LLMRPGAGT's      */
+/* service programs (HTTPAPIR4, EXPAT, YAJLR4, etc.) can be activated.      */
+/* CPF2103 = library already on list; suppress it.                           */
+/*---------------------------------------------------------------------------*/
+             ADDLIBLE   LIB(LIBHTTP) POSITION(*LAST)
+             MONMSG     MSGID(CPF2103)
+             ADDLIBLE   LIB(YAJL) POSITION(*LAST)
+             MONMSG     MSGID(CPF2103)
+
+/*---------------------------------------------------------------------------*/
 /* Call the RPG agent program with all five parameters.                      */
 /* LLMRPGAGT reads %parms() to detect which optional args were supplied;     */
 /* the CMD always populates all five so we always pass all five here.        */

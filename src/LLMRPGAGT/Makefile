@@ -81,10 +81,13 @@ summary:
 # all /COPY and /INCLUDE directives before the SQL precompiler runs. This is
 # required because HTTPAPI_H contains /copy *LIBL/qrpglesrc,config_h which
 # needs LIBHTTP on the library list at preprocessing time.
-# All ADDLIBLE calls and CRTSQLRPGI are chained into a single system -K
-# invocation (colon-separated CL commands) so the library list additions are
-# in effect when the *LVL2 preprocessor runs — separate system calls each
-# execute in their own job and do not share library list state.
+# All ADDLIBLE calls, CRTSQLRPGI, and CRTPGM are chained into a single
+# system -K invocation (colon-separated CL commands) so the library list
+# additions are in effect for both the *LVL2 preprocessor and the CRTPGM
+# binding directory resolution — separate system -K calls each execute in
+# their own job and do not share library list state.  cl cannot be used for
+# CRTPGM because it is not safe for multithreaded jobs (the PASE shell is
+# multithreaded).
 # The /INCLUDE directives in the source use absolute /QSYS.LIB IFS paths so
 # they resolve without any library list dependency.
 # GENLVL(30) allows the compile to succeed despite severity-10/20 warnings.
@@ -96,7 +99,7 @@ rpgle: bnddir
 	 cl 'ADDLIBLE LIB(LIBHTTP)'       $(REDIRECT) || true && \
 	 cl 'ADDLIBLE LIB(YAJL)'          $(REDIRECT) || true && \
 	 cl 'CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') COMMIT(*NONE) DBGVIEW(*SOURCE) OBJTYPE(*MODULE) COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) RPGPPOPT(*LVL2) GENLVL(30)' $(REDIRECT) || { printf "$(RED)✗ CRTSQLRPGI failed$(NC)\n"; exit 1; }
-	@system -K 'CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) MODULE($(TARGET_LIB)/$(RPGLE_NAME)) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) USRPRF(*OWNER) ACTGRP(*NEW) OPTION(*DUPPROC)' $(REDIRECT) || { printf "$(RED)✗ CRTPGM failed$(NC)\n"; exit 1; }
+	@system -K 'CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) MODULE($(TARGET_LIB)/$(RPGLE_NAME)) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) LIBHTTP/HTTPAPI YAJL/YAJL QC2LE) USRPRF(*OWNER) ACTGRP(*NEW) OPTION(*DUPPROC)' $(REDIRECT) || { printf "$(RED)✗ CRTPGM failed$(NC)\n"; exit 1; }
 	@printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n"
 
 #-------------------------------------------------------------------------------
@@ -111,7 +114,7 @@ bnddir:
 	@system -K 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true
 	@system -K 'DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
 	@system -K 'CRTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) TEXT('"'"'Binding dir for $(RPGLE_NAME)'"'"') AUT(*LIBCRTAUT)' $(REDIRECT) || { printf "$(RED)✗ Binding directory creation failed$(NC)\n"; exit 1; }
-	@system -K 'ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) OBJ((YAJL/YAJL *SRVPGM *DEFER) (YAJL/YAJLR4 *SRVPGM *DEFER) (LIBHTTP/HTTPAPIR4 *SRVPGM *DEFER) (LIBHTTP/EXPAT *SRVPGM *DEFER))' $(REDIRECT) || { printf "$(RED)✗ ADDBNDDIRE failed$(NC)\n"; exit 1; }
+	@system -K 'ADDBNDDIRE BNDDIR($(TARGET_LIB)/$(RPGLE_NAME)) OBJ((YAJL/YAJL *SRVPGM *IMMED) (YAJL/YAJLR4 *SRVPGM *IMMED) (LIBHTTP/HTTPAPIR4 *SRVPGM *IMMED) (LIBHTTP/EXPAT *SRVPGM *IMMED))' $(REDIRECT) || { printf "$(RED)✗ ADDBNDDIRE failed$(NC)\n"; exit 1; }
 	@printf "$(GREEN)✓ Binding directory created$(NC)\n"
 
 #-------------------------------------------------------------------------------
@@ -140,8 +143,9 @@ clean:
 	@system -K 'DLTCMD CMD($(TARGET_LIB)/$(CMD_NAME))' $(REDIRECT) || true
 	@system -K 'DLTPGM PGM($(TARGET_LIB)/$(CPP_NAME))' $(REDIRECT) || true
 	@system -K 'DLTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
+	@system -K 'DLTMOD MODULE($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
 	@system -K 'DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
-	@printf "$(GREEN)v Clean complete$(NC)\n"
+	@printf "$(GREEN)✓ Clean complete$(NC)\n"
 
 #-------------------------------------------------------------------------------
 # Help

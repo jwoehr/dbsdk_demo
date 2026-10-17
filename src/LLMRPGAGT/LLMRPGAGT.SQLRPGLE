@@ -16,7 +16,8 @@
 //          IBM Bob (AI pair programmer)
 // =============================================================================
 
-ctl-opt option(*srcstmt : *nodebugio : *nounref);
+ctl-opt option(*srcstmt : *nodebugio : *nounref)
+        bnddir('HTTPAPI' : 'YAJL');
 
 // Five program parameters
 dcl-pi *n;
@@ -953,7 +954,7 @@ end-proc sendOnFdRaw;
 // Returns the body; sets reqMethod and reqPath as output parameters.
 // ===========================================================================
 dcl-proc readHttpRequest;
-    dcl-pi *n  varchar(MAX_PROMPT);
+    dcl-pi *n  varchar(MAX_PROMPT) ccsid(819);
         connFd    int(10)      const;
         reqMethod varchar(10);
         reqPath   varchar(200);
@@ -966,18 +967,26 @@ dcl-proc readHttpRequest;
     dcl-s bytesRd int(10);
     dcl-s raw     varchar(32767) ccsid(819);
     dcl-s hdrPart varchar(8192)  ccsid(819);
-    dcl-s body    varchar(MAX_PROMPT);
+    dcl-s body    varchar(MAX_PROMPT) ccsid(819);
     dcl-s hdrEnd  int(10);
     dcl-s clPos   int(10);
     dcl-s clEnd   int(10);
-    dcl-s clStr   varchar(10);
-    dcl-s contLen int(10)  inz(0);
-    dcl-s sp1     int(10);
-    dcl-s sp2     int(10);
+    dcl-s clStr       varchar(10);
+    dcl-s contLen     int(10)  inz(0);
+    dcl-s sp1         int(10);
+    dcl-s sp2         int(10);
+    // All strings scanned against ccsid(819) buffers must themselves be
+    // ccsid(819); EBCDIC literals would never match ASCII wire bytes.
+    dcl-s aCRLF       char(2)    ccsid(819) inz(x'0D0A');
+    dcl-s aSP         char(1)    ccsid(819) inz(' ');
+    dcl-s clHeader    varchar(16) ccsid(819) inz('Content-Length: ');
+    // bodyAsc holds the body in ASCII before conversion to EBCDIC for return.
+    dcl-s bodyAsc     varchar(MAX_PROMPT) ccsid(819);
 
     reqMethod = '';
     reqPath   = '';
     body      = '';
+    bodyAsc   = '';
 
     bytesRd = sock_recv(connFd : %addr(rawBuf) : %size(rawBuf) - 1 : 0);
     if bytesRd <= 0;
@@ -986,42 +995,47 @@ dcl-proc readHttpRequest;
 
     raw = %subst(rawBuf : 1 : bytesRd);
 
-    hdrEnd = %scan(CRLF + CRLF : raw);
+    hdrEnd = %scan(aCRLF + aCRLF : raw);
     if hdrEnd > 0;
         hdrPart = %subst(raw : 1 : hdrEnd - 1);
         if hdrEnd + 3 < %len(raw);
-            body = %subst(raw : hdrEnd + 4);
+            bodyAsc = %subst(raw : hdrEnd + 4);
         endif;
     else;
         hdrPart = raw;
     endif;
 
-    sp1 = %scan(' ' : hdrPart);
+    sp1 = %scan(aSP : hdrPart);
     if sp1 > 0;
         reqMethod = %trim(%subst(hdrPart : 1 : sp1 - 1));
-        sp2 = %scan(' ' : hdrPart : sp1 + 1);
+        sp2 = %scan(aSP : hdrPart : sp1 + 1);
         if sp2 > sp1;
             reqPath = %trim(%subst(hdrPart : sp1 + 1 : sp2 - sp1 - 1));
         endif;
     endif;
 
-    clPos = %scan('Content-Length: ' : hdrPart);
+    clPos = %scan(clHeader : hdrPart);
     if clPos > 0;
-        clEnd = %scan(CRLF : hdrPart : clPos);
+        clEnd = %scan(aCRLF : hdrPart : clPos);
         if clEnd > clPos;
             clStr   = %trim(%subst(hdrPart : clPos + 16 : clEnd - clPos - 16));
             contLen = %int(%trim(clStr));
         endif;
     endif;
 
-    dow contLen > 0 and %len(body) < contLen;
+    dow contLen > 0 and %len(bodyAsc) < contLen;
         bytesRd = sock_recv(connFd : %addr(rawBuf) : %size(rawBuf) - 1 : 0);
         if bytesRd <= 0;
             leave;
         endif;
-        body += %subst(rawBuf : 1 : bytesRd);
+        bodyAsc += %subst(rawBuf : 1 : bytesRd);
     enddo;
 
+    body = bodyAsc;
+    writeLog('readHttpRequest: hdrEnd=' + %char(hdrEnd) +
+             ' contLen=' + %char(contLen) +
+             ' bodyLen=' + %char(%len(body)) +
+             ' body=[' + %subst(body + ' ' : 1 : %min(80 : %len(body + ' '))) + ']');
     return body;
 
 end-proc readHttpRequest;
@@ -1119,12 +1133,22 @@ dcl-proc handleQuery;
     dcl-s jsonResp varchar(MAX_RESPONSE);
 
     clear queryReqDs;
+    // Confirm encoding: EBCDIC '{' = x'C0', ASCII '{' = x'7B'
+    if %subst(%trim(body) + ' ' : 1 : 1) = x'C0';
+        writeLog('handleQuery: first byte is EBCDIC { (x''C0'') - correct');
+    elseif %subst(%trim(body) + ' ' : 1 : 1) = x'7B';
+        writeLog('handleQuery: first byte is ASCII { (x''7B'') - EBCDIC conversion did not happen');
+    else;
+        writeLog('handleQuery: first byte is neither EBCDIC nor ASCII {');
+    endif;
     monitor;
         Data-Into queryReqDs
             %Data(body : 'case=any allowextra=yes')
             %Parser('YAJLINTO');
-    on-error;
-        writeLog('handleQuery: JSON parse error');
+    on-error *ALL;
+        writeLog('handleQuery: Data-Into error status=' + %char(%status()) +
+                 ' bodyLen=' + %char(%len(body)) +
+                 ' body=[' + %subst(body + ' ' : 1 : %min(80 : %len(body + ' '))) + ']');
         return '{"session_id":"","status":"error",' +
                '"message":"Invalid JSON body"}';
     endmon;
@@ -1189,7 +1213,7 @@ dcl-proc serveHttp;
     dcl-s optVal    int(10) inz(1);
     dcl-s reqMethod varchar(10);
     dcl-s reqPath   varchar(200);
-    dcl-s reqBody   varchar(MAX_PROMPT);
+    dcl-s reqBody   varchar(MAX_PROMPT) ccsid(819);
     dcl-s respBody  varchar(MAX_RESPONSE);
     dcl-s rc        int(10);
 
