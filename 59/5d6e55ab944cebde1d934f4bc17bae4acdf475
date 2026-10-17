@@ -1,0 +1,14 @@
+src/LLMRPGAGT/LLMRPGAGT.SQLRPGLE
+  h_00d79582c3c048 951,959-960,965,994,1018,1023,1113-1184,1187-1188,1195-1204,1207-1212,1214,1219-1220,1223,1236,1274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "595d6e55ab944cebde1d934f4bc17bae4acdf475",
+  "prompts": {},
+  "humans": {
+    "h_00d79582c3c048": {
+      "author": "Jack Woehr <jwoehr@softwoehr.com>"
+    }
+  }
+}
