@@ -248,12 +248,6 @@ dcl-ds mcpCallParse qualified;
     c_text       varchar(MAX_RESPONSE) dim(10);
 end-ds;
 
-// Flat DS for parsing POST /query request body.
-// JSON shape: {"session_id":"...","query":"..."}
-dcl-ds queryReqDs qualified;
-    session_id  varchar(36);
-    query       varchar(MAX_PROMPT);
-end-ds;
 
 // ---------------------------------------------------------------------------
 // SQL options
@@ -954,7 +948,7 @@ end-proc sendOnFdRaw;
 // Returns the body; sets reqMethod and reqPath as output parameters.
 // ===========================================================================
 dcl-proc readHttpRequest;
-    dcl-pi *n  varchar(MAX_PROMPT) ccsid(819);
+    dcl-pi *n  varchar(MAX_PROMPT);
         connFd    int(10)      const;
         reqMethod varchar(10);
         reqPath   varchar(200);
@@ -962,12 +956,13 @@ dcl-proc readHttpRequest;
 
     // rawBuf is tagged CCSID(819) so sock_recv bytes are treated as ASCII.
     // Assigning rawBuf slices to raw/hdrPart (also CCSID 819) is a no-op copy.
-    // Assigning raw/hdrPart slices to plain varchar triggers ASCII->EBCDIC.
+    // Assigning a CCSID(819) slice to plain varchar triggers ASCII->EBCDIC
+    // conversion, which is what we want — YAJLINTO requires EBCDIC input.
     dcl-s rawBuf  char(32767) ccsid(819);
     dcl-s bytesRd int(10);
     dcl-s raw     varchar(32767) ccsid(819);
     dcl-s hdrPart varchar(8192)  ccsid(819);
-    dcl-s body    varchar(MAX_PROMPT) ccsid(819);
+    dcl-s body    varchar(MAX_PROMPT);
     dcl-s hdrEnd  int(10);
     dcl-s clPos   int(10);
     dcl-s clEnd   int(10);
@@ -980,13 +975,10 @@ dcl-proc readHttpRequest;
     dcl-s aCRLF       char(2)    ccsid(819) inz(x'0D0A');
     dcl-s aSP         char(1)    ccsid(819) inz(' ');
     dcl-s clHeader    varchar(16) ccsid(819) inz('Content-Length: ');
-    // bodyAsc holds the body in ASCII before conversion to EBCDIC for return.
-    dcl-s bodyAsc     varchar(MAX_PROMPT) ccsid(819);
 
     reqMethod = '';
     reqPath   = '';
     body      = '';
-    bodyAsc   = '';
 
     bytesRd = sock_recv(connFd : %addr(rawBuf) : %size(rawBuf) - 1 : 0);
     if bytesRd <= 0;
@@ -999,7 +991,7 @@ dcl-proc readHttpRequest;
     if hdrEnd > 0;
         hdrPart = %subst(raw : 1 : hdrEnd - 1);
         if hdrEnd + 3 < %len(raw);
-            bodyAsc = %subst(raw : hdrEnd + 4);
+            body = %subst(raw : hdrEnd + 4);
         endif;
     else;
         hdrPart = raw;
@@ -1023,15 +1015,14 @@ dcl-proc readHttpRequest;
         endif;
     endif;
 
-    dow contLen > 0 and %len(bodyAsc) < contLen;
+    dow contLen > 0 and %len(body) < contLen;
         bytesRd = sock_recv(connFd : %addr(rawBuf) : %size(rawBuf) - 1 : 0);
         if bytesRd <= 0;
             leave;
         endif;
-        bodyAsc += %subst(rawBuf : 1 : bytesRd);
+        body += %subst(rawBuf : 1 : bytesRd);
     enddo;
 
-    body = bodyAsc;
     writeLog('readHttpRequest: hdrEnd=' + %char(hdrEnd) +
              ' contLen=' + %char(contLen) +
              ' bodyLen=' + %char(%len(body)) +
@@ -1120,49 +1111,116 @@ dcl-proc jsonEscape;
 end-proc jsonEscape;
 
 // ===========================================================================
+// extractJsonStr — extracts the string value of a named key from a flat
+// EBCDIC JSON object.  Handles only string values; returns '' if not found.
+// Walks the key-colon-quote-value-quote pattern byte by byte so it handles
+// escaped quotes (\" = x'E07F') inside values without a full JSON parser.
+// ===========================================================================
+dcl-proc extractJsonStr;
+    dcl-pi *n  varchar(MAX_PROMPT);
+        doc  varchar(MAX_RESPONSE) const;  // EBCDIC JSON body
+        key  varchar(200)          const;  // key name to find (without quotes)
+    end-pi;
+
+    // EBCDIC single characters used for scanning
+    dcl-c DQUOTE  x'7F';   // "
+    dcl-c COLON   x'7A';   // :
+    dcl-c BKSLASH x'E0';   // \
+
+    dcl-s searchKey  varchar(202);
+    dcl-s keyPos     int(10);
+    dcl-s valStart   int(10);
+    dcl-s i          int(10);
+    dcl-s ch         char(1);
+    dcl-s prevCh     char(1);
+    dcl-s value      varchar(MAX_PROMPT);
+
+    // Build "key" pattern to locate in doc
+    searchKey = DQUOTE + key + DQUOTE;
+    keyPos = %scan(searchKey : doc);
+    if keyPos = 0;
+        return '';
+    endif;
+
+    // Skip past the key and its closing quote to find the colon
+    valStart = keyPos + %len(searchKey);
+    // Skip whitespace and the colon
+    dou valStart > %len(doc);
+        ch = %subst(doc : valStart : 1);
+        if ch = COLON;
+            valStart += 1;
+            leave;
+        endif;
+        valStart += 1;
+    enddo;
+    // Skip whitespace to opening quote of value
+    dou valStart > %len(doc);
+        ch = %subst(doc : valStart : 1);
+        if ch = DQUOTE;
+            valStart += 1;  // step past opening quote
+            leave;
+        endif;
+        valStart += 1;
+    enddo;
+    if valStart > %len(doc);
+        return '';
+    endif;
+
+    // Collect value bytes until unescaped closing quote
+    value   = '';
+    prevCh  = x'00';
+    for i = valStart to %len(doc);
+        ch = %subst(doc : i : 1);
+        if ch = DQUOTE and prevCh <> BKSLASH;
+            leave;  // unescaped closing quote — done
+        endif;
+        value  += ch;
+        prevCh  = ch;
+    endfor;
+
+    return value;
+
+end-proc extractJsonStr;
+
+// ===========================================================================
 // handleQuery — parses a POST /query body and returns a JSON response.
+// Uses extractJsonStr instead of DATA-INTO/YAJLINTO for the simple two-field
+// request body {"session_id":"...","query":"..."}.
 // ===========================================================================
 dcl-proc handleQuery;
     dcl-pi *n  varchar(MAX_RESPONSE);
         body  varchar(MAX_RESPONSE) const;
     end-pi;
 
-    dcl-s sessIdx  int(10);
-    dcl-s sessId   varchar(36);
-    dcl-s result   varchar(MAX_RESPONSE);
-    dcl-s jsonResp varchar(MAX_RESPONSE);
+    dcl-s sessIdx    int(10);
+    dcl-s sessId     varchar(36);
+    dcl-s result     varchar(MAX_RESPONSE);
+    dcl-s jsonResp   varchar(MAX_RESPONSE);
+    dcl-s queryVal   varchar(MAX_PROMPT);
+    dcl-s sessionVal varchar(36);
 
-    clear queryReqDs;
-    // Confirm encoding: EBCDIC '{' = x'C0', ASCII '{' = x'7B'
-    if %subst(%trim(body) + ' ' : 1 : 1) = x'C0';
-        writeLog('handleQuery: first byte is EBCDIC { (x''C0'') - correct');
-    elseif %subst(%trim(body) + ' ' : 1 : 1) = x'7B';
-        writeLog('handleQuery: first byte is ASCII { (x''7B'') - EBCDIC conversion did not happen');
-    else;
-        writeLog('handleQuery: first byte is neither EBCDIC nor ASCII {');
-    endif;
-    monitor;
-        Data-Into queryReqDs
-            %Data(body : 'case=any allowextra=yes')
-            %Parser('YAJLINTO');
-    on-error *ALL;
-        writeLog('handleQuery: Data-Into error status=' + %char(%status()) +
-                 ' bodyLen=' + %char(%len(body)) +
-                 ' body=[' + %subst(body + ' ' : 1 : %min(80 : %len(body + ' '))) + ']');
+    // Validate outer object
+    if %subst(%trim(body) + ' ' : 1 : 1) <> x'C0';   // EBCDIC {
+        writeLog('handleQuery: body does not start with { — invalid JSON');
         return '{"session_id":"","status":"error",' +
                '"message":"Invalid JSON body"}';
-    endmon;
+    endif;
 
-    if %trim(queryReqDs.query) = '';
+    queryVal   = extractJsonStr(body : 'query');
+    sessionVal = %subst(extractJsonStr(body : 'session_id') + ' ' : 1 : 36);
+    writeLog('handleQuery: queryLen=' + %char(%len(%trim(queryVal))) +
+             ' sessionVal=[' + %trim(sessionVal) + ']');
+
+    if %trim(queryVal) = '';
         return '{"session_id":"","status":"error",' +
                '"message":"Missing query field"}';
     endif;
 
-    if %trim(queryReqDs.session_id) <> '';
-        sessIdx = findSession(%trim(queryReqDs.session_id));
+    if %trim(sessionVal) <> '';
+        sessIdx = findSession(%trim(sessionVal));
         if sessIdx = 0;
             return '{"session_id":"' +
-                   jsonEscape(%trim(queryReqDs.session_id)) +
+                   jsonEscape(%trim(sessionVal)) +
                    '","status":"error","message":"Session not found"}';
         endif;
     else;
@@ -1175,7 +1233,7 @@ dcl-proc handleQuery;
     endif;
 
     sessId = sessions(sessIdx).sessId;
-    result = runReact(sessIdx : %trim(queryReqDs.query));
+    result = runReact(sessIdx : %trim(queryVal));
 
     if sessions(sessIdx).paused;
         jsonResp = '{"session_id":"' + jsonEscape(sessId) + '",' +
@@ -1213,7 +1271,7 @@ dcl-proc serveHttp;
     dcl-s optVal    int(10) inz(1);
     dcl-s reqMethod varchar(10);
     dcl-s reqPath   varchar(200);
-    dcl-s reqBody   varchar(MAX_PROMPT) ccsid(819);
+    dcl-s reqBody   varchar(MAX_PROMPT);
     dcl-s respBody  varchar(MAX_RESPONSE);
     dcl-s rc        int(10);
 
