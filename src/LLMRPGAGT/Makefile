@@ -45,15 +45,17 @@ BASE_DIR := $(shell pwd)
 # Library that receives the compiled objects
 TARGET_LIB ?= DBSDK_DEMO
 
-# Source member name
+# Source member names
 RPGLE_NAME := LLMRPGAGT
+CPP_NAME   := LLMRPGAGC
+CMD_NAME   := LLMRPGAGT
 
-.PHONY: all rpgle clean help
+.PHONY: all rpgle cmd clean help
 
 #-------------------------------------------------------------------------------
 # Default target
 #-------------------------------------------------------------------------------
-all: header rpgle summary
+all: header rpgle cmd summary
 
 #-------------------------------------------------------------------------------
 # Header / summary
@@ -65,7 +67,8 @@ header:
 
 summary:
 	@printf "$(GREEN)✓ Build complete.$(NC)\n"
-	@printf "  To run: CALL PGM($(TARGET_LIB)/$(RPGLE_NAME)) PARM('<provider>' '<iface:port>')\n"
+	@printf "  To run via CMD: $(TARGET_LIB)/$(CMD_NAME) PROVIDER('<provider>') LISTEN('<iface:port>')\n"
+	@printf "  To run via CALL: CALL PGM($(TARGET_LIB)/$(RPGLE_NAME)) PARM('<provider>' '<iface:port>')\n"
 
 #-------------------------------------------------------------------------------
 # SQL RPG program
@@ -74,22 +77,25 @@ summary:
 # DFTRDBCOL(DBSDK_V1) makes unqualified SQL names resolve to DBSDK_V1.
 # CVTCCSID(*JOB) handles UTF-8 source files.
 # SQLPATH(*LIBL) resolves SQL function/procedure names via the library list.
-# ADDLIBLE for TARGET_LIB, DBSDK_V1, LIBHTTP, and YAJL must run before
-# CRTSQLRPGI so the precompiler and RPG compiler can open /copy members.
-# HTTPAPI_H internally /copys CONFIG_H using an unqualified name, so LIBHTTP
-# must be on the library list for the compiler to find it.
-# Binding (symbol resolution) is handled separately by the bnddir target which
-# creates DBSDK_DEMO/LLMRPGAGT with library-qualified srvpgm entries, avoiding
-# the *LIBL lookup failure in the spawned batch compile job.
-# GENLVL(20) allows the compile to succeed despite severity-10 warnings.
+# RPGPPOPT(*LVL2) runs the RPG preprocessor in the current job, expanding
+# all /COPY and /INCLUDE directives before the SQL precompiler runs. This is
+# required because HTTPAPI_H contains /copy *LIBL/qrpglesrc,config_h which
+# needs LIBHTTP on the library list at preprocessing time.
+# All ADDLIBLE calls and CRTSQLRPGI are chained into a single system -K
+# invocation (colon-separated CL commands) so the library list additions are
+# in effect when the *LVL2 preprocessor runs — separate system calls each
+# execute in their own job and do not share library list state.
+# The /INCLUDE directives in the source use absolute /QSYS.LIB IFS paths so
+# they resolve without any library list dependency.
+# GENLVL(30) allows the compile to succeed despite severity-10/20 warnings.
 #-------------------------------------------------------------------------------
 rpgle: bnddir
 	@printf "$(YELLOW)>>> Compiling $(RPGLE_NAME).SQLRPGLE ...$(NC)\n"
-	@system -K 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true
-	@system -K 'ADDLIBLE LIB(DBSDK_V1)' $(REDIRECT) || true
-	@system -K 'ADDLIBLE LIB(LIBHTTP)' $(REDIRECT) || true
-	@system -K 'ADDLIBLE LIB(YAJL)' $(REDIRECT) || true
-	@system -K 'CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') COMMIT(*NONE) DBGVIEW(*SOURCE) OBJTYPE(*MODULE) COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF) INCFILE(*LIBL/QRPGLESRC)'"'"') RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) GENLVL(30)' $(REDIRECT) || { printf "$(RED)✗ CRTSQLRPGI failed$(NC)\n"; exit 1; }
+	@cl 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true && \
+	 cl 'ADDLIBLE LIB(DBSDK_V1)'     $(REDIRECT) || true && \
+	 cl 'ADDLIBLE LIB(LIBHTTP)'       $(REDIRECT) || true && \
+	 cl 'ADDLIBLE LIB(YAJL)'          $(REDIRECT) || true && \
+	 cl 'CRTSQLRPGI OBJ($(TARGET_LIB)/$(RPGLE_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(RPGLE_NAME).SQLRPGLE'"'"') COMMIT(*NONE) DBGVIEW(*SOURCE) OBJTYPE(*MODULE) COMPILEOPT('"'"'TGTCCSID(*JOB) OPTION(*NOUNREF)'"'"') RDB(*LOCAL) DFTRDBCOL(DBSDK_V1) CVTCCSID(*JOB) SQLPATH(*LIBL) RPGPPOPT(*LVL2) GENLVL(30)' $(REDIRECT) || { printf "$(RED)✗ CRTSQLRPGI failed$(NC)\n"; exit 1; }
 	@system -K 'CRTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME)) MODULE($(TARGET_LIB)/$(RPGLE_NAME)) BNDDIR($(TARGET_LIB)/$(RPGLE_NAME) QC2LE) USRPRF(*OWNER) ACTGRP(*NEW) OPTION(*DUPPROC)' $(REDIRECT) || { printf "$(RED)✗ CRTPGM failed$(NC)\n"; exit 1; }
 	@printf "$(GREEN)✓ $(RPGLE_NAME) compiled successfully$(NC)\n"
 
@@ -109,13 +115,33 @@ bnddir:
 	@printf "$(GREEN)✓ Binding directory created$(NC)\n"
 
 #-------------------------------------------------------------------------------
-# Clean — delete compiled objects from TARGET_LIB
+# CL command processing program (CPP)
+#-------------------------------------------------------------------------------
+cpp:
+	@printf "$(YELLOW)>>> Compiling $(CPP_NAME).CLLE ...$(NC)\n"
+	@system -K 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true
+	@system -K 'CRTBNDCL PGM($(TARGET_LIB)/$(CPP_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(CPP_NAME).CLLE'"'"') DBGVIEW(*SOURCE) AUT(*EXCLUDE)' $(REDIRECT) || { printf "$(RED)x CRTBNDCL failed$(NC)\n"; exit 1; }
+	@printf "$(GREEN)v $(CPP_NAME) compiled successfully$(NC)\n"
+
+#-------------------------------------------------------------------------------
+# Command object (*CMD)
+#-------------------------------------------------------------------------------
+cmd: cpp
+	@printf "$(YELLOW)>>> Creating $(CMD_NAME) *CMD ...$(NC)\n"
+	@system -K 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true
+	@system -K 'CRTCMD CMD($(TARGET_LIB)/$(CMD_NAME)) PGM($(TARGET_LIB)/$(CPP_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(CMD_NAME).CMD'"'"') ALLOW(*INTERACT *BATCH *BPGM *IPGM) AUT(*EXCLUDE) TEXT('"'"'Run LLMRPGAGT ReAct Agent'"'"')' $(REDIRECT) || { printf "$(RED)x CRTCMD failed$(NC)\n"; exit 1; }
+	@printf "$(GREEN)v $(CMD_NAME) *CMD created successfully$(NC)\n"
+
+#-------------------------------------------------------------------------------
+# Clean - delete compiled objects from TARGET_LIB
 #-------------------------------------------------------------------------------
 clean:
 	@printf "$(YELLOW)Deleting $(RPGLE_NAME) from $(TARGET_LIB) ...$(NC)\n"
+	@system -K 'DLTCMD CMD($(TARGET_LIB)/$(CMD_NAME))' $(REDIRECT) || true
+	@system -K 'DLTPGM PGM($(TARGET_LIB)/$(CPP_NAME))' $(REDIRECT) || true
 	@system -K 'DLTPGM PGM($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
 	@system -K 'DLTBNDDIR BNDDIR($(TARGET_LIB)/$(RPGLE_NAME))' $(REDIRECT) || true
-	@printf "$(GREEN)✓ Clean complete$(NC)\n"
+	@printf "$(GREEN)v Clean complete$(NC)\n"
 
 #-------------------------------------------------------------------------------
 # Help
@@ -124,8 +150,10 @@ help:
 	@printf "LLMRPGAGT Makefile\n\n"
 	@printf "Usage: make [target] [TARGET_LIB=<lib>] [VERBOSE=1]\n\n"
 	@printf "Targets:\n"
-	@printf "  all    - Build RPG program (default)\n"
+	@printf "  all    - Build RPG program + CPP + CMD (default)\n"
 	@printf "  rpgle  - Build $(RPGLE_NAME) SQL RPG program only\n"
+	@printf "  cpp    - Build $(CPP_NAME) CL command processing program only\n"
+	@printf "  cmd    - Build $(CMD_NAME) *CMD (also builds CPP)\n"
 	@printf "  clean  - Delete compiled objects from TARGET_LIB\n"
 	@printf "  help   - Show this help\n\n"
 	@printf "Options:\n"

@@ -1,0 +1,30 @@
+/*===========================================================================*/
+/* LLMRPGAGC - Command Processing Program for LLMRPGAGT *CMD              */
+/*                                                                           */
+/* Receives the five command parameters and passes them directly to the      */
+/* LLMRPGAGT program.  The three optional parms are always passed because    */
+/* LLMRPGAGT uses %parms() to decide whether to use them.                   */
+/*                                                                           */
+/* License: Apache License, Version 2.0                                      */
+/*          https://www.apache.org/licenses/LICENSE-2.0                      */
+/* Authors: Jack Woehr <jwoehr@softwoehr.com>                                */
+/*          IBM Bob (AI pair programmer)                                      */
+/*===========================================================================*/
+             PGM        PARM(&PROVIDER &LISTEN &MCPURL &SKILLS +
+                          &LOGPATH)
+
+             DCL        VAR(&PROVIDER) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&LISTEN)   TYPE(*CHAR) LEN(100)
+             DCL        VAR(&MCPURL)   TYPE(*CHAR) LEN(1000)
+             DCL        VAR(&SKILLS)   TYPE(*CHAR) LEN(1000)
+             DCL        VAR(&LOGPATH)  TYPE(*CHAR) LEN(1000)
+
+/*---------------------------------------------------------------------------*/
+/* Call the RPG agent program with all five parameters.                      */
+/* LLMRPGAGT reads %parms() to detect which optional args were supplied;     */
+/* the CMD always populates all five so we always pass all five here.        */
+/*---------------------------------------------------------------------------*/
+             CALL       PGM(*LIBL/LLMRPGAGT) PARM(&PROVIDER +
+                          &LISTEN &MCPURL &SKILLS &LOGPATH)
+
+             ENDPGM

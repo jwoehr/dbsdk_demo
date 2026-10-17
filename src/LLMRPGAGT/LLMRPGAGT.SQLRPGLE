@@ -20,18 +20,18 @@ ctl-opt option(*srcstmt : *nodebugio : *nounref);
 
 // Five program parameters
 dcl-pi *n;
-    providerName  varchar(20)   const;                          // required
-    listenAddr    varchar(100)  const;                          // required: iface:port
-    mcpUrl        varchar(1000) const options(*nopass); // optional
-    skillsPath    varchar(1000) const options(*nopass); // optional
-    logPath       varchar(1000) const options(*nopass); // optional
+    providerName  char(20)    const;   // required
+    listenAddr    char(100)   const;   // required: iface:port
+    mcpUrl        char(1000)  const;   // optional (blank = omitted)
+    skillsPath    char(1000)  const;   // optional (blank = omitted)
+    logPath       char(1000)  const;   // optional (blank = omitted)
 end-pi;
 
 // ---------------------------------------------------------------------------
 // HTTPAPI / YAJL includes
 // ---------------------------------------------------------------------------
-/INCLUDE LIBHTTP/QRPGLESRC,HTTPAPI_H
-/INCLUDE YAJL/QRPGLESRC,YAJL_H
+/INCLUDE '/QSYS.LIB/LIBHTTP.LIB/QRPGLESRC.FILE/HTTPAPI_H.MBR'
+/INCLUDE '/QSYS.LIB/YAJL.LIB/QRPGLESRC.FILE/YAJL_H.MBR'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -69,10 +69,10 @@ dcl-pr c_write  int(10) extproc('write');
     nbytes      uns(10) value;
 end-pr;
 
-// open() flag constants (PASE O_* values for IFS)
+// open() flag constants (IBM i IFS native values from QSYSINC/H,FCNTL)
 dcl-c  O_WRONLY   2;
 dcl-c  O_CREAT    8;
-dcl-c  O_APPEND   8388608;
+dcl-c  O_APPEND   256;
 dcl-c  S_IRUSR    256;
 dcl-c  S_IWUSR    128;
 dcl-c  S_IRGRP    32;
@@ -144,10 +144,6 @@ end-pr;
 
 dcl-pr sock_inet_addr uns(10) extproc('inet_addr');
     cp          pointer value options(*string);
-end-pr;
-
-dcl-pr sock_htons   uns(5) extproc('htons');
-    hostshort   uns(5) value;
 end-pr;
 
 dcl-pr sock_setsockopt int(10) extproc('setsockopt');
@@ -271,24 +267,21 @@ Exec SQL SET OPTION
 // ===========================================================================
 
 // 1. Open log
-if %parms() >= 5 and %trim(logPath) <> '';
-    openLog(%trim(logPath));
-else;
-    openLog('');
-endif;
+// Parameters are char (CL *CHAR); blank = omitted.  %trim() is safe on char.
+openLog(%trim(logPath));
 
 writeLog('LLMRPGAGT starting.');
-writeLog('Provider: ' + providerName);
-writeLog('Listen:   ' + listenAddr);
+writeLog('Provider: ' + %trim(providerName));
+writeLog('Listen:   ' + %trim(listenAddr));
 
 // 2. Bootstrap LLM provider config
-backend = providerName;
+backend = %trim(providerName);
 fetchConfig();
 setForJob();
 writeLog('LLM provider configured: ' + backend);
 
 // 3. Connect to MCP server (optional)
-if %parms() >= 3 and %trim(mcpUrl) <> '';
+if %trim(mcpUrl) <> '';
     g_mcpUrl = %trim(mcpUrl);
     writeLog('Connecting to MCP server: ' + g_mcpUrl);
     fetchMcpTools(g_mcpUrl);
@@ -298,7 +291,7 @@ else;
 endif;
 
 // 4. Load skills file (optional)
-if %parms() >= 4 and %trim(skillsPath) <> '';
+if %trim(skillsPath) <> '';
     writeLog('Loading skills file: ' + %trim(skillsPath));
     loadSkills(%trim(skillsPath));
 else;
@@ -310,7 +303,7 @@ buildSystemPrompt();
 writeLog('System prompt built (' + %char(%len(systemPrompt)) + ' chars).');
 
 // 6. Start HTTP server
-writeLog('Starting HTTP server on ' + listenAddr + ' ...');
+writeLog('Starting HTTP server on ' + %trim(listenAddr) + ' ...');
 serveHttp();
 
 writeLog('HTTP server exited.');
@@ -807,6 +800,8 @@ dcl-proc runReact;
     end-pi;
 
     dcl-s fullPrompt  varchar(MAX_PROMPT);
+    dcl-s sysLen      int(10);   // clamped system-prompt length
+    dcl-s histLen     int(10);   // remaining chars for history
     dcl-s llmOut      varchar(MAX_RESPONSE);
     dcl-s action      varchar(200);
     dcl-s actionInput varchar(4096);
@@ -823,10 +818,22 @@ dcl-proc runReact;
 
         sessions(sessIdx).stepNum = step;
 
-        fullPrompt = systemPrompt + NL + NL + sessions(sessIdx).history;
-        if %len(fullPrompt) > MAX_PROMPT;
-            fullPrompt = %subst(fullPrompt :
-                                %len(fullPrompt) - MAX_PROMPT + 1);
+        // Clamp systemPrompt + history to MAX_PROMPT before assigning to
+        // fullPrompt.  All branches use %subst on both components so that the
+        // RHS expression never exceeds MAX_PROMPT chars — direct concatenation
+        // of varchar(65535) fields into a varchar(16000) target causes RNQ0115.
+        sysLen  = %min(%len(systemPrompt) : MAX_PROMPT - 2);
+        histLen = MAX_PROMPT - sysLen - 2;  // 2 = two NL separators
+        fullPrompt = %subst(systemPrompt : 1 : sysLen) + NL + NL;
+        if histLen > 0;
+            if %len(sessions(sessIdx).history) <= histLen;
+                fullPrompt += %subst(sessions(sessIdx).history : 1 :
+                                     %len(sessions(sessIdx).history));
+            else;
+                fullPrompt +=
+                    %subst(sessions(sessIdx).history :
+                           %len(sessions(sessIdx).history) - histLen + 1);
+            endif;
         endif;
 
         writeLog('ReAct step ' + %char(step) +
@@ -1168,7 +1175,7 @@ dcl-proc serveHttp;
                          %addr(optVal) : %size(optVal));
 
     sockaddrIn.sin_family = AF_INET;
-    sockaddrIn.sin_port   = sock_htons(%uns(portNum));
+    sockaddrIn.sin_port   = %uns(portNum);   // IBM i is big-endian; htons is a no-op
     if ifaceStr = '0.0.0.0' or ifaceStr = '';
         sockaddrIn.sin_addr = INADDR_ANY;
     else;
