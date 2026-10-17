@@ -1,0 +1,16 @@
+src/LLMRPGAGT/LLMRPGAGT.SQLRPGLE
+  h_00d79582c3c048 48,160,253-254,910-916,918-919,923-924,928-950,962-965,967-968,1039-1047,1060-1066,1068-1069,1132,1137-1138,1141,1154
+src/LLMRPGAGT/query.sh
+  h_00d79582c3c048 1-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "38a5426613fe845b1bc33b3bdd5dd6343ae3787c",
+  "prompts": {},
+  "humans": {
+    "h_00d79582c3c048": {
+      "author": "Jack Woehr <jwoehr@softwoehr.com>"
+    }
+  }
+}
