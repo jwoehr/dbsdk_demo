@@ -270,6 +270,7 @@ Exec SQL SET OPTION
 // Parameters are char (CL *CHAR); blank = omitted.  %trim() is safe on char.
 openLog(%trim(logPath));
 
+SendProgramMessage('LLMRPGAGT starting.');
 writeLog('LLMRPGAGT starting.');
 writeLog('Provider: ' + %trim(providerName));
 writeLog('Listen:   ' + %trim(listenAddr));
@@ -304,8 +305,10 @@ writeLog('System prompt built (' + %char(%len(systemPrompt)) + ' chars).');
 
 // 6. Start HTTP server
 writeLog('Starting HTTP server on ' + %trim(listenAddr) + ' ...');
+SendProgramMessage('LLMRPGAGT: starting HTTP server on ' + %trim(listenAddr));
 serveHttp();
 
+SendProgramMessage('LLMRPGAGT: HTTP server exited.');
 writeLog('HTTP server exited.');
 *inlr = *on;
 return;
@@ -1153,6 +1156,7 @@ dcl-proc serveHttp;
     colonPos = %scan(':' : listenAddr);
     if colonPos = 0;
         writeLog('serveHttp: invalid listenAddr (no colon): ' + listenAddr);
+        SendProgramMessage('LLMRPGAGT: invalid listenAddr: ' + %trim(listenAddr));
         return;
     endif;
 
@@ -1162,17 +1166,24 @@ dcl-proc serveHttp;
 
     if portNum <= 0 or portNum > 65535;
         writeLog('serveHttp: invalid port: ' + portStr);
+        SendProgramMessage('LLMRPGAGT: invalid port: ' + %trim(portStr));
         return;
     endif;
 
     listenFd = sock_socket(AF_INET : SOCK_STREAM : 0);
     if listenFd < 0;
         writeLog('serveHttp: socket() failed');
+        SendProgramMessage('LLMRPGAGT: socket() failed');
         return;
     endif;
 
     rc = sock_setsockopt(listenFd : SOL_SOCKET : SO_REUSEADDR :
                          %addr(optVal) : %size(optVal));
+
+    // inet_addr() only handles dotted-decimal; map known hostnames first.
+    if ifaceStr = 'localhost';
+        ifaceStr = '127.0.0.1';
+    endif;
 
     sockaddrIn.sin_family = AF_INET;
     sockaddrIn.sin_port   = %uns(portNum);   // IBM i is big-endian; htons is a no-op
@@ -1182,14 +1193,20 @@ dcl-proc serveHttp;
         sockaddrIn.sin_addr = sock_inet_addr(ifaceStr);
     endif;
 
+    SendProgramMessage('LLMRPGAGT: binding ' + %trim(ifaceStr) +
+                       ':' + %trim(portStr) +
+                       ' fd=' + %char(listenFd));
+
     if sock_bind(listenFd : %addr(sockaddrIn) : %size(sockaddrIn)) < 0;
         writeLog('serveHttp: bind() failed on ' + listenAddr);
+        SendProgramMessage('LLMRPGAGT: bind() failed on ' + %trim(listenAddr));
         rc = sock_close(listenFd);
         return;
     endif;
 
     if sock_listen(listenFd : 5) < 0;
         writeLog('serveHttp: listen() failed');
+        SendProgramMessage('LLMRPGAGT: listen() failed');
         rc = sock_close(listenFd);
         return;
     endif;
