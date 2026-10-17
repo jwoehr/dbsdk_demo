@@ -45,7 +45,7 @@ dcl-c  MAX_SESSIONS    100;
 dcl-c  MAX_MCP_TOOLS   50;
 dcl-c  MAX_REACT_STEPS 10;
 dcl-c  NL              x'25';    // EBCDIC newline / IFS LF
-dcl-c  CRLF            x'0D25';  // HTTP line ending (EBCDIC CR+LF)
+dcl-c  CRLF            x'0D0A';  // HTTP line ending (ASCII CR+LF for wire protocol)
 // JSON escape sequences (EBCDIC):  backslash=x'E0', quote=x'7F'
 dcl-c  JS_BKSLASH      x'E0';            // single backslash char
 dcl-c  JS_ESC_QUOTE    x'E07F';          // \"
@@ -157,7 +157,7 @@ end-pr;
 // Socket constants
 dcl-c  AF_INET      2;
 dcl-c  SOCK_STREAM  1;
-dcl-c  SOL_SOCKET   1;
+dcl-c  SOL_SOCKET   65535;  // 0xffff — correct PASE value for setsockopt level
 dcl-c  SO_REUSEADDR 4;
 dcl-c  INADDR_ANY   0;
 
@@ -250,8 +250,8 @@ end-ds;
 // Flat DS for parsing POST /query request body.
 // JSON shape: {"session_id":"...","query":"..."}
 dcl-ds queryReqDs qualified;
-    q_session_id  varchar(36);
-    q_query       varchar(MAX_PROMPT);
+    session_id  varchar(36);
+    query       varchar(MAX_PROMPT);
 end-ds;
 
 // ---------------------------------------------------------------------------
@@ -907,18 +907,46 @@ dcl-proc sendOnFd;
         data  varchar(MAX_SYSTEM) const;
     end-pi;
 
-    dcl-s buf  char(MAX_SYSTEM);
-    dcl-s len  uns(10);
-    dcl-s rc   int(10);
+    // Translate EBCDIC data to ASCII (CCSID 819) before sending over the wire.
+    // asciiBuf: assignment from EBCDIC varchar triggers EBCDIC->ASCII conversion.
+    // wireBuf:  also CCSID(819) so no re-translation occurs on the char copy.
+    dcl-s asciiBuf  varchar(MAX_SYSTEM) ccsid(819);
+    dcl-s wireBuf   char(MAX_SYSTEM)    ccsid(819);
+    dcl-s len       uns(10);
+    dcl-s rc        int(10);
+
+    asciiBuf = data;           // EBCDIC -> ASCII translation happens here
+    len = %uns(%len(asciiBuf));
+    if len = 0;
+        return;
+    endif;
+    wireBuf = asciiBuf;        // no-op copy: both are CCSID 819
+    rc  = sock_send(fd : %addr(wireBuf) : len : 0);
+
+end-proc sendOnFd;
+
+// ===========================================================================
+// sendOnFdRaw — sends pre-encoded ASCII data on a socket fd without any
+// CCSID conversion.  Used for HTTP response headers already in CCSID 819.
+// ===========================================================================
+dcl-proc sendOnFdRaw;
+    dcl-pi *n;
+        fd    int(10)              const;
+        data  varchar(MAX_SYSTEM)  ccsid(819) const;
+    end-pi;
+
+    dcl-s wireBuf  char(MAX_SYSTEM) ccsid(819);
+    dcl-s len      uns(10);
+    dcl-s rc       int(10);
 
     len = %uns(%len(data));
     if len = 0;
         return;
     endif;
-    buf = data;
-    rc  = sock_send(fd : %addr(buf) : len : 0);
+    wireBuf = data;   // same CCSID — no conversion
+    rc = sock_send(fd : %addr(wireBuf) : len : 0);
 
-end-proc sendOnFd;
+end-proc sendOnFdRaw;
 
 // ===========================================================================
 // readHttpRequest — reads one HTTP request from a connected socket fd.
@@ -931,10 +959,13 @@ dcl-proc readHttpRequest;
         reqPath   varchar(200);
     end-pi;
 
-    dcl-s rawBuf  char(32767);
+    // rawBuf is tagged CCSID(819) so sock_recv bytes are treated as ASCII.
+    // Assigning rawBuf slices to raw/hdrPart (also CCSID 819) is a no-op copy.
+    // Assigning raw/hdrPart slices to plain varchar triggers ASCII->EBCDIC.
+    dcl-s rawBuf  char(32767) ccsid(819);
     dcl-s bytesRd int(10);
-    dcl-s raw     varchar(32767);
-    dcl-s hdrPart varchar(8192);
+    dcl-s raw     varchar(32767) ccsid(819);
+    dcl-s hdrPart varchar(8192)  ccsid(819);
     dcl-s body    varchar(MAX_PROMPT);
     dcl-s hdrEnd  int(10);
     dcl-s clPos   int(10);
@@ -1005,8 +1036,15 @@ dcl-proc writeHttpResponse;
         body       varchar(MAX_RESPONSE) const;
     end-pi;
 
-    dcl-s statusText varchar(30);
-    dcl-s hdr        varchar(256);
+    // Build header directly in CCSID 819 (ASCII) so CRLF bytes are never
+    // subject to EBCDIC->ASCII translation.  All header text characters
+    // (A-Z, 0-9, space, hyphen, slash, colon) are invariant between EBCDIC
+    // and ASCII so the string literal assignments translate correctly.
+    // x'0D0A' written into a ccsid(819) var is stored as-is (no conversion).
+    dcl-c  CRLF_A   x'0D0A';           // ASCII CR+LF — used only here
+    dcl-s statusText varchar(30)        ccsid(819);
+    dcl-s hdr        varchar(512)       ccsid(819);
+    dcl-s bodyLen    varchar(10);       // decimal digits — ASCII-invariant
 
     select;
         when statusCode = 200;
@@ -1019,14 +1057,16 @@ dcl-proc writeHttpResponse;
             statusText = 'Unknown';
     endsl;
 
-    hdr = 'HTTP/1.0 ' + %char(statusCode) + ' ' + statusText + CRLF +
-          'Content-Type: application/json' + CRLF +
-          'Content-Length: ' + %char(%len(body)) + CRLF +
-          'Connection: close' + CRLF +
-          CRLF;
+    bodyLen = %char(%len(body));        // EBCDIC digits -> ccsid(819): safe
 
-    sendOnFd(connFd : hdr);
-    sendOnFd(connFd : body);
+    hdr = 'HTTP/1.0 ' + %char(statusCode) + ' ' + statusText + CRLF_A +
+          'Content-Type: application/json' + CRLF_A +
+          'Content-Length: ' + bodyLen + CRLF_A +
+          'Connection: close' + CRLF_A +
+          CRLF_A;
+
+    sendOnFdRaw(connFd : hdr);          // already ASCII — send without conversion
+    sendOnFd(connFd : body);            // EBCDIC body — sendOnFd converts to ASCII
 
 end-proc writeHttpResponse;
 
@@ -1089,16 +1129,16 @@ dcl-proc handleQuery;
                '"message":"Invalid JSON body"}';
     endmon;
 
-    if %trim(queryReqDs.q_query) = '';
+    if %trim(queryReqDs.query) = '';
         return '{"session_id":"","status":"error",' +
                '"message":"Missing query field"}';
     endif;
 
-    if %trim(queryReqDs.q_session_id) <> '';
-        sessIdx = findSession(%trim(queryReqDs.q_session_id));
+    if %trim(queryReqDs.session_id) <> '';
+        sessIdx = findSession(%trim(queryReqDs.session_id));
         if sessIdx = 0;
             return '{"session_id":"' +
-                   jsonEscape(%trim(queryReqDs.q_session_id)) +
+                   jsonEscape(%trim(queryReqDs.session_id)) +
                    '","status":"error","message":"Session not found"}';
         endif;
     else;
@@ -1111,7 +1151,7 @@ dcl-proc handleQuery;
     endif;
 
     sessId = sessions(sessIdx).sessId;
-    result = runReact(sessIdx : %trim(queryReqDs.q_query));
+    result = runReact(sessIdx : %trim(queryReqDs.query));
 
     if sessions(sessIdx).paused;
         jsonResp = '{"session_id":"' + jsonEscape(sessId) + '",' +
