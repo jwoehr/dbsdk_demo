@@ -35,6 +35,10 @@
 /* the CMD always populates all five so we always pass all five here.        */
 /*---------------------------------------------------------------------------*/
              CALL       PGM(*LIBL/LLMRPGAGT) PARM(&PROVIDER +
-                          &LISTEN &MCPURL &SKILLS &LOGPATH)
+                           &LISTEN &MCPURL &SKILLS &LOGPATH)
+             MONMSG     MSGID(CPF0000 MCH0000) EXEC(DO)
+             SNDPGMMSG  MSG('LLMRPGAGT ended in error - check job log') +
+                           TOPGMQ(*SAME) MSGTYPE(*DIAG)
+             ENDDO
 
              ENDPGM

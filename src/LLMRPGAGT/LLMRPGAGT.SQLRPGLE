@@ -38,6 +38,7 @@ end-pi;
 // Constants
 // ---------------------------------------------------------------------------
 dcl-c  MAX_RESPONSE    32000;
+dcl-c  MAX_RESP_PAYLOAD 16000;  // max LLM text embedded in a JSON response
 dcl-c  MAX_PROMPT      16000;
 dcl-c  MAX_SYSTEM      65535;
 dcl-c  MAX_SKILLS      65535;
@@ -449,6 +450,9 @@ dcl-proc callLLM;
 
     if backend = 'openai_compatible';
 
+        writeLog('callLLM(openai_compatible): promptLen=' +
+                 %char(%len(%trim(in_prompt))));
+
         Exec SQL
             SET :llmResponse = (
                 VALUES dbsdk_v1.openai_compatible_chat_generate(
@@ -456,7 +460,18 @@ dcl-proc callLLM;
                     options  => '{}' )
             );
 
+        if sqlcode <> 0;
+            writeLog('callLLM: openai_compatible_chat_generate error sqlcode=' +
+                     %char(sqlcode));
+            return 'ANSWER: Error calling LLM (sqlcode=' + %char(sqlcode) + ')';
+        endif;
+
+        writeLog('callLLM(openai_compatible): responseLen=' +
+                 %char(llmResponse_LEN));
+
     else;
+        writeLog('callLLM(ollama): promptLen=' + %char(%len(%trim(in_prompt))));
+
         Exec SQL
             SET :prompt = (
                 VALUES JSON_OBJECT(
@@ -465,10 +480,24 @@ dcl-proc callLLM;
                 )
             );
 
+        if sqlcode <> 0;
+            writeLog('callLLM: JSON_OBJECT error sqlcode=' + %char(sqlcode));
+            return 'ANSWER: Error building prompt (sqlcode=' + %char(sqlcode) + ')';
+        endif;
+
+        writeLog('callLLM(ollama): msgLen=' + %char(%len(%trim(prompt))));
+
         Exec SQL
             SET :llmResponse = (
                 VALUES dbsdk_v1.ollama_generate( prompt => :prompt )
             );
+
+        if sqlcode <> 0;
+            writeLog('callLLM: ollama_generate error sqlcode=' + %char(sqlcode));
+            return 'ANSWER: Error calling LLM (sqlcode=' + %char(sqlcode) + ')';
+        endif;
+
+        writeLog('callLLM(ollama): responseLen=' + %char(llmResponse_LEN));
 
     endif;
 
@@ -807,8 +836,19 @@ dcl-proc runReact;
     dcl-s answer      varchar(MAX_RESPONSE);
     dcl-s toolResult  varchar(MAX_RESPONSE);
     dcl-s step        int(10);
+    dcl-s histMax     int(10)  inz(65535);  // max length of history field
+    dcl-s appendStr   varchar(MAX_RESPONSE);
+    dcl-s appendLen   int(20);              // needs int(20): hist(65535)+llm(32000)
 
-    sessions(sessIdx).history += 'User: ' + userInput + NL;
+    // history += 'User: ' + userInput + NL — guard against overflow
+    appendStr = 'User: ' + %subst(userInput : 1 :
+                    %min(%len(userInput) : MAX_PROMPT)) + NL;
+    appendLen = %len(sessions(sessIdx).history) + %len(appendStr);
+    if appendLen <= histMax;
+        sessions(sessIdx).history += appendStr;
+    else;
+        writeLog('runReact: history full - user entry dropped');
+    endif;
     sessions(sessIdx).paused   = *off;
     sessions(sessIdx).done     = *off;
 
@@ -838,7 +878,17 @@ dcl-proc runReact;
                  ' session ' + sessions(sessIdx).sessId);
 
         llmOut = callLLM(fullPrompt);
-        sessions(sessIdx).history += 'Assistant: ' + llmOut + NL;
+        // history += 'Assistant: ' + llmOut + NL — append in pieces to avoid
+        // constructing a temporary expression larger than varchar(65535).
+        appendLen = %len(sessions(sessIdx).history) + 11 +  // 'Assistant: '
+                    %len(llmOut) + 1;                        // + NL
+        if appendLen <= histMax;
+            sessions(sessIdx).history += 'Assistant: ';
+            sessions(sessIdx).history += llmOut;
+            sessions(sessIdx).history += NL;
+        else;
+            writeLog('runReact: history full - assistant entry dropped');
+        endif;
 
         answer  = parseReactTag(llmOut : 'ANSWER');
         clarify = parseReactTag(llmOut : 'CLARIFY');
@@ -870,8 +920,17 @@ dcl-proc runReact;
                 toolResult = 'No MCP server - tool call skipped.';
             endif;
 
-            sessions(sessIdx).history +=
-                'Tool(' + %trim(action) + '): ' + toolResult + NL;
+            // history += 'Tool(...): ' + toolResult + NL — append in pieces
+            appendStr = 'Tool(' + %trim(action) + '): ';
+            appendLen = %len(sessions(sessIdx).history) + %len(appendStr) +
+                        %len(toolResult) + 1;
+            if appendLen <= histMax;
+                sessions(sessIdx).history += appendStr;
+                sessions(sessIdx).history += toolResult;
+                sessions(sessIdx).history += NL;
+            else;
+                writeLog('runReact: history full - tool entry dropped');
+            endif;
 
         else;
             writeLog('ReAct step ' + %char(step) +
@@ -948,7 +1007,7 @@ end-proc sendOnFdRaw;
 // Returns the body; sets reqMethod and reqPath as output parameters.
 // ===========================================================================
 dcl-proc readHttpRequest;
-    dcl-pi *n  varchar(MAX_PROMPT);
+    dcl-pi *n  varchar(MAX_RESPONSE);
         connFd    int(10)      const;
         reqMethod varchar(10);
         reqPath   varchar(200);
@@ -962,7 +1021,9 @@ dcl-proc readHttpRequest;
     dcl-s bytesRd int(10);
     dcl-s raw     varchar(32767) ccsid(819);
     dcl-s hdrPart varchar(8192)  ccsid(819);
-    dcl-s body    varchar(MAX_PROMPT);
+    dcl-s rawBody varchar(32767) ccsid(819);  // body slice before CCSID convert
+    dcl-s bodyLen int(10);                    // capped body byte count
+    dcl-s body    varchar(MAX_RESPONSE);
     dcl-s hdrEnd  int(10);
     dcl-s clPos   int(10);
     dcl-s clEnd   int(10);
@@ -991,7 +1052,13 @@ dcl-proc readHttpRequest;
     if hdrEnd > 0;
         hdrPart = %subst(raw : 1 : hdrEnd - 1);
         if hdrEnd + 3 < %len(raw);
-            body = %subst(raw : hdrEnd + 4);
+            // Extract body slice into same-width ccsid(819) buffer first,
+            // then copy with an explicit length that fits MAX_RESPONSE.
+            // This avoids the compiler inserting a truncation-check when
+            // assigning varchar(32767) directly to varchar(32000).
+            bodyLen = %min(%len(raw) - hdrEnd - 3 : MAX_RESPONSE);
+            rawBody = %subst(raw : hdrEnd + 4 : bodyLen);
+            body    = %subst(rawBody : 1 : bodyLen);
         endif;
     else;
         hdrPart = raw;
@@ -1020,7 +1087,15 @@ dcl-proc readHttpRequest;
         if bytesRd <= 0;
             leave;
         endif;
-        body += %subst(rawBuf : 1 : bytesRd);
+        // Stage through rawBody (varchar(32767) ccsid(819)) before converting
+        // to body (plain varchar) to avoid compiler truncation-check on the
+        // varchar(32767)->varchar(32000) width mismatch.
+        bodyLen = %min(bytesRd : MAX_RESPONSE - %len(body));
+        if bodyLen <= 0;
+            leave;
+        endif;
+        rawBody = %subst(rawBuf : 1 : bodyLen);
+        body   += %subst(rawBody : 1 : bodyLen);
     enddo;
 
     writeLog('readHttpRequest: hdrEnd=' + %char(hdrEnd) +
@@ -1083,30 +1158,37 @@ dcl-proc jsonEscape;
         s  varchar(MAX_RESPONSE) const;
     end-pi;
 
-    dcl-s escaped varchar(MAX_RESPONSE);
+    // worst-case every byte doubles (e.g. all backslashes); use 32767 ceiling
+    dcl-s escaped varchar(32767);
     dcl-s i       int(10);
     dcl-s ch      char(1);
 
     escaped = '';
-    for i = 1 to %len(s);
-        ch = %subst(s : i : 1);
-        select;
-            when ch = x'7F';               // EBCDIC double-quote
-                escaped += JS_ESC_QUOTE;
-            when ch = x'E0';               // EBCDIC backslash
-                escaped += JS_ESC_BKSLASH;
-            when ch = x'25' or ch = x'0A'; // EBCDIC NL or ASCII LF
-                escaped += JS_ESC_NL;
-            when ch = x'0D';               // CR
-                escaped += JS_ESC_CR;
-            when ch = x'05' or ch = x'09'; // EBCDIC HT or ASCII HT
-                escaped += JS_ESC_TAB;
-            other;
-                escaped += ch;
-        endsl;
-    endfor;
+    monitor;
+        for i = 1 to %len(s);
+            ch = %subst(s : i : 1);
+            select;
+                when ch = x'7F';               // EBCDIC double-quote
+                    escaped += JS_ESC_QUOTE;
+                when ch = x'E0';               // EBCDIC backslash
+                    escaped += JS_ESC_BKSLASH;
+                when ch = x'25' or ch = x'0A'; // EBCDIC NL or ASCII LF
+                    escaped += JS_ESC_NL;
+                when ch = x'0D';               // CR
+                    escaped += JS_ESC_CR;
+                when ch = x'05' or ch = x'09'; // EBCDIC HT or ASCII HT
+                    escaped += JS_ESC_TAB;
+                other;
+                    escaped += ch;
+            endsl;
+        endfor;
+    on-error;
+        // truncated due to response size; return what fit
+        writeLog('jsonEscape: output truncated at ' + %char(%len(escaped)) +
+                 ' chars (input was ' + %char(%len(s)) + ')');
+    endmon;
 
-    return escaped;
+    return %subst(escaped : 1 : %min(%len(escaped) : MAX_RESPONSE));
 
 end-proc jsonEscape;
 
@@ -1192,22 +1274,32 @@ dcl-proc handleQuery;
         body  varchar(MAX_RESPONSE) const;
     end-pi;
 
-    dcl-s sessIdx    int(10);
-    dcl-s sessId     varchar(36);
-    dcl-s result     varchar(MAX_RESPONSE);
-    dcl-s jsonResp   varchar(MAX_RESPONSE);
-    dcl-s queryVal   varchar(MAX_PROMPT);
-    dcl-s sessionVal varchar(36);
+    dcl-s sessIdx       int(10);
+    dcl-s sessId        varchar(36);
+    dcl-s rawResult     varchar(MAX_RESPONSE);     // raw return from runReact
+    dcl-s result        varchar(MAX_RESP_PAYLOAD); // capped at escape-safe size
+    dcl-s escapedResult varchar(32767);            // jsonEscape output buffer
+    dcl-s jsonResp      varchar(MAX_RESPONSE);
+    dcl-s queryVal      varchar(MAX_PROMPT);
+    dcl-s sessRaw       varchar(MAX_PROMPT);       // raw session_id from JSON
+    dcl-s sessionVal    varchar(36);
 
-    // Validate outer object
-    if %subst(%trim(body) + ' ' : 1 : 1) <> x'C0';   // EBCDIC {
+    // Validate outer object — check first non-space byte is EBCDIC '{'
+    if %len(%trim(body)) = 0 or %subst(%trim(body) : 1 : 1) <> x'C0';
         writeLog('handleQuery: body does not start with { — invalid JSON');
         return '{"session_id":"","status":"error",' +
                '"message":"Invalid JSON body"}';
     endif;
 
-    queryVal   = extractJsonStr(body : 'query');
-    sessionVal = %subst(extractJsonStr(body : 'session_id') + ' ' : 1 : 36);
+    queryVal = extractJsonStr(body : 'query');
+    // Pad sessRaw to at least 36 chars before %subst to guarantee the
+    // length argument is in range even when session_id is absent.
+    sessRaw = extractJsonStr(body : 'session_id');
+    if %len(sessRaw) < 36;
+        sessRaw = sessRaw + %subst('                                    '
+                                   : 1 : 36 - %len(sessRaw));
+    endif;
+    sessionVal = %subst(sessRaw : 1 : 36);
     writeLog('handleQuery: queryLen=' + %char(%len(%trim(queryVal))) +
              ' sessionVal=[' + %trim(sessionVal) + ']');
 
@@ -1233,16 +1325,42 @@ dcl-proc handleQuery;
     endif;
 
     sessId = sessions(sessIdx).sessId;
-    result = runReact(sessIdx : %trim(queryVal));
+
+    // Assign runReact result safely: runReact returns varchar(MAX_RESPONSE)
+    // but result is varchar(MAX_RESP_PAYLOAD).  Use %subst to cap without
+    // relying on implicit truncation (which throws RNX0100).
+    rawResult = runReact(sessIdx : %trim(queryVal));
+    if %len(rawResult) > MAX_RESP_PAYLOAD;
+        writeLog('handleQuery: result truncated from ' +
+                 %char(%len(rawResult)) + ' to ' +
+                 %char(MAX_RESP_PAYLOAD) + ' chars');
+        result = %subst(rawResult : 1 : MAX_RESP_PAYLOAD);
+    else;
+        result = rawResult;
+    endif;
+
+    // JSON-escape the result into a dedicated buffer sized for worst-case
+    // doubling (16000 chars * 2 = 32000, well within varchar(32767)).
+    escapedResult = jsonEscape(result);
+
+    // Build the JSON response.  All pieces are now bounded:
+    //   sessId        <=  36 chars  (UUID)
+    //   escapedResult <= 32000 chars
+    //   envelope      ~   60 chars
+    //   total         <= 32096 chars — fits in varchar(MAX_RESPONSE=32000)
+    // Trim escapedResult to leave room for the envelope if needed.
+    if %len(escapedResult) > 31900;
+        escapedResult = %subst(escapedResult : 1 : 31900);
+    endif;
 
     if sessions(sessIdx).paused;
-        jsonResp = '{"session_id":"' + jsonEscape(sessId) + '",' +
+        jsonResp = '{"session_id":"' + sessId + '",' +
                    '"status":"clarify",' +
-                   '"question":"' + jsonEscape(result) + '"}';
+                   '"question":"'  + escapedResult + '"}';
     else;
-        jsonResp = '{"session_id":"' + jsonEscape(sessId) + '",' +
+        jsonResp = '{"session_id":"' + sessId + '",' +
                    '"status":"answer",' +
-                   '"response":"' + jsonEscape(result) + '"}';
+                   '"response":"' + escapedResult + '"}';
     endif;
 
     return jsonResp;
@@ -1271,7 +1389,7 @@ dcl-proc serveHttp;
     dcl-s optVal    int(10) inz(1);
     dcl-s reqMethod varchar(10);
     dcl-s reqPath   varchar(200);
-    dcl-s reqBody   varchar(MAX_PROMPT);
+    dcl-s reqBody   varchar(MAX_RESPONSE);
     dcl-s respBody  varchar(MAX_RESPONSE);
     dcl-s rc        int(10);
 
