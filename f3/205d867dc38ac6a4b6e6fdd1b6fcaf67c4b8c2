@@ -1,0 +1,16 @@
+src/LLMRPGAGT/LLMRPGAGC.CLLE
+  h_00d79582c3c048 38-42
+src/LLMRPGAGT/LLMRPGAGT.SQLRPGLE
+  h_00d79582c3c048 41,453-455,463-471,473-474,483-489,495-501,839-851,881-891,923-933,1010,1024-1026,1055-1061,1090-1098,1161-1162,1167-1189,1191,1277-1288,1294-1302,1328-1354,1357,1359,1361,1363,1392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3205d867dc38ac6a4b6e6fdd1b6fcaf67c4b8c2",
+  "prompts": {},
+  "humans": {
+    "h_00d79582c3c048": {
+      "author": "Jack Woehr <jwoehr@softwoehr.com>"
+    }
+  }
+}
