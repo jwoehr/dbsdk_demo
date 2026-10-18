@@ -272,6 +272,8 @@ All of the following must be installed and available before building or running
 | [`LLMRPGAGT.SQLRPGLE`](LLMRPGAGT.SQLRPGLE) | ILE SQL RPG agent program                          |
 | [`LLMRPGAGC.CLLE`](LLMRPGAGC.CLLE)         | CL command processing program (CPP) for the `*CMD` |
 | [`LLMRPGAGT.CMD`](LLMRPGAGT.CMD)           | IBM i `*CMD` object definition                     |
+| [`Makefile`](Makefile)                     | GNU make build script for IBM i PASE               |
+| [`query.sh`](query.sh)                     | Bash helper script for querying the running agent  |
 
 ---
 
@@ -291,13 +293,15 @@ make [TARGET_LIB=<lib>] [VERBOSE=1]
 The default `all` target builds the RPG program, the CPP (`LLMRPGAGC`), and the
 `*CMD` (`LLMRPGAGT`). Individual targets are also available:
 
-| Target  | Description                                   |
-| ------- | --------------------------------------------- |
-| `all`   | Build everything (default)                    |
-| `rpgle` | Build the SQL RPG program only                |
-| `cpp`   | Build the CL command processing program only  |
-| `cmd`   | Build the `*CMD` (also builds the CPP)        |
-| `clean` | Delete all compiled objects from `TARGET_LIB` |
+| Target   | Description                                           |
+| -------- | ----------------------------------------------------- |
+| `all`    | Build everything (default)                            |
+| `rpgle`  | Build the SQL RPG program only (also builds `bnddir`) |
+| `bnddir` | Create the binding directory in `TARGET_LIB`          |
+| `cpp`    | Build the CL command processing program only          |
+| `cmd`    | Build the `*CMD` (also builds the CPP)                |
+| `clean`  | Delete all compiled objects from `TARGET_LIB`         |
+| `help`   | Print a summary of targets and options                |
 
 | Variable     | Default      | Description                                      |
 | ------------ | ------------ | ------------------------------------------------ |
@@ -380,3 +384,42 @@ SBMJOB CMD(LLMRPGAGT PROVIDER('ollama') LISTEN('0.0.0.0:9090')) +
 SBMJOB CMD(CALL PGM(DBSDK_DEMO/LLMRPGAGT) PARM('ollama' '0.0.0.0:9090'))
        JOB(LLMRPGAGT) JOBD(*LIBL/QBATCH) INLLIBL(*JOBD DBSDK_DEMO DBSDK_V1 LIBHTTP YAJL)
 ```
+
+---
+
+## Querying the agent with `query.sh`
+
+[`query.sh`](query.sh) is a Bash helper that runs on any system with `curl` and
+`python3` available. It performs a health check, then POSTs a query to the
+running agent and pretty-prints the JSON response.
+
+```text
+Usage: ./query.sh [OPTIONS] "query text"
+
+Options:
+  -H HOST        Agent host (default: localhost)
+  -p PORT        Agent port (default: 8080)
+  -s SESSION_ID  Resume an existing session
+  -S             Session mode: interactive multi-turn loop
+  -h             Show help and exit
+```
+
+**Examples:**
+
+```bash
+# Single query (new session, default host/port)
+./query.sh "What is the current date on the IBM i system?"
+
+# Query a remote agent on a non-default port
+./query.sh -H myibmi.example.com -p 9090 "List the libraries in my library list"
+
+# Resume a paused session (agent returned status=clarify)
+./query.sh -s 20250731143012-1 "Db2 for i"
+
+# Interactive multi-turn session (-S keeps the session alive across prompts)
+./query.sh -S "Tell me about LLMRPGAGT"
+```
+
+In session mode (`-S`), `query.sh` loops until the agent returns `answer` or
+`error`. When the agent returns `clarify`, it prints the clarification question
+and reads your answer from stdin before sending the next request.
