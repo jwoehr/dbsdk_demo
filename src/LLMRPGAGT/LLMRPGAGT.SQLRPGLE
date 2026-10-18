@@ -232,21 +232,24 @@ dcl-s  sessionCount int(10) inz(0);
 // is returned in the num_-prefixed sibling field.
 // JSON shape expected:
 //   {"result":{"tools":[{"name":"...","description":"..."}]}}
-// YAJLINTO flattens nested objects, so we just name subfields after the
-// leaf keys and rely on allowextra=yes to ignore anything else.
+// YAJLINTO flattens nested objects so DS field names must match JSON leaf
+// keys exactly.  countprefix=num_ generates num_<fieldname> counters, so
+// the count field must be named num_name (matches the "name" array field).
 // ---------------------------------------------------------------------------
 dcl-ds mcpListParse qualified;
-    num_tools    int(10)       inz(0);
-    t_name       varchar(200)  dim(MAX_MCP_TOOLS);
-    t_desc       varchar(1000) dim(MAX_MCP_TOOLS);
+    num_name     int(10)       inz(0);   // populated by countprefix=num_ for "name"
+    name         varchar(200)  dim(MAX_MCP_TOOLS);
+    description  varchar(1000) dim(MAX_MCP_TOOLS);
 end-ds;
 
 // Flat DS for parsing MCP tools/call JSON response.
 // JSON shape: {"result":{"content":[{"type":"text","text":"..."}]}}
+// DS field names must match JSON keys exactly: "type" and "text".
+// countprefix=num_ generates num_type for the "type" array.
 dcl-ds mcpCallParse qualified;
-    num_content  int(10)           inz(0);
-    c_type       varchar(50)       dim(10);
-    c_text       varchar(MAX_RESPONSE) dim(10);
+    num_type     int(10)           inz(0);   // populated by countprefix=num_ for "type"
+    type         varchar(50)       dim(10);
+    text         varchar(MAX_RESPONSE) dim(10);
 end-ds;
 
 
@@ -280,6 +283,14 @@ writeLog('LLM provider configured: ' + backend);
 // 3. Connect to MCP server (optional)
 if %trim(mcpUrl) <> '';
     g_mcpUrl = %trim(mcpUrl);
+    // Warn if URL is missing an http:// or https:// scheme; HTTPAPI requires
+    // a fully-qualified URL (e.g. 'http://127.0.0.1:8020').
+    if %scan('://' : g_mcpUrl) = 0;
+        writeLog('WARNING: MCPURL has no scheme (http:// or https://). ' +
+                 'Prepending http://. Supplied: ' + g_mcpUrl);
+        SendProgramMessage('LLMRPGAGT: MCPURL missing scheme - prepending http://');
+        g_mcpUrl = 'http://' + g_mcpUrl;
+    endif;
     writeLog('Connecting to MCP server: ' + g_mcpUrl);
     fetchMcpTools(g_mcpUrl);
     writeLog('MCP tools loaded: ' + %char(mcpToolCount));
@@ -437,84 +448,64 @@ end-proc setForJob;
 
 // ===========================================================================
 // callLLM — submits a prompt to the configured LLM backend.
-// Returns the LLM response text.
+// Delegates to callOpenAI or callOllama; contains no SQL itself so that the
+// SQL precompiler does not generate host-variable descriptors that could set
+// SQLCODE on the ollama path.
 // ===========================================================================
 dcl-proc callLLM;
     dcl-pi *n  varchar(MAX_RESPONSE);
         in_prompt  varchar(MAX_PROMPT) const;
     end-pi;
 
-    dcl-s llmResponse  SQLTYPE(CLOB : 32000);
-    dcl-s prompt       varchar(16100);
-    dcl-s rtnVal       varchar(MAX_RESPONSE);
-
     if backend = 'openai_compatible';
-
-        writeLog('callLLM(openai_compatible): promptLen=' +
-                 %char(%len(%trim(in_prompt))));
-
-        Exec SQL
-            SET :llmResponse = (
-                VALUES dbsdk_v1.openai_compatible_chat_generate(
-                    prompt   => TRIM(:in_prompt),
-                    options  => '{}' )
-            );
-
-        if sqlcode <> 0;
-            writeLog('callLLM: openai_compatible_chat_generate error sqlcode=' +
-                     %char(sqlcode));
-            return 'ANSWER: Error calling LLM (sqlcode=' + %char(sqlcode) + ')';
-        endif;
-
-        writeLog('callLLM(openai_compatible): responseLen=' +
-                 %char(llmResponse_LEN));
-
+        return callOpenAI(in_prompt);
     else;
         writeLog('callLLM(ollama): promptLen=' + %char(%len(%trim(in_prompt))));
-
-        Exec SQL
-            SET :prompt = (
-                VALUES JSON_OBJECT(
-                    KEY 'role'    VALUE 'user',
-                    KEY 'content' VALUE TRIM(:in_prompt)
-                )
-            );
-
-        if sqlcode <> 0;
-            writeLog('callLLM: JSON_OBJECT error sqlcode=' + %char(sqlcode));
-            return 'ANSWER: Error building prompt (sqlcode=' + %char(sqlcode) + ')';
-        endif;
-
-        writeLog('callLLM(ollama): msgLen=' + %char(%len(%trim(prompt))));
-
-        Exec SQL
-            SET :llmResponse = (
-                VALUES dbsdk_v1.ollama_generate( prompt => :prompt )
-            );
-
-        if sqlcode <> 0;
-            writeLog('callLLM: ollama_generate error sqlcode=' + %char(sqlcode));
-            return 'ANSWER: Error calling LLM (sqlcode=' + %char(sqlcode) + ')';
-        endif;
-
-        writeLog('callLLM(ollama): responseLen=' + %char(llmResponse_LEN));
-
+        return callOllama(in_prompt);
     endif;
 
+    return '';
+
+end-proc callLLM;
+
+// ===========================================================================
+// callOpenAI — calls dbsdk_v1.openai_compatible_chat_generate via embedded
+// SQL.  Isolated in its own procedure so that its ccsid 1208 host variables
+// and Exec SQL statements are invisible to callLLM when the ollama backend
+// is selected.
+// ===========================================================================
+dcl-proc callOpenAI;
+    dcl-pi *n  varchar(MAX_RESPONSE);
+        in_prompt  varchar(MAX_PROMPT) const;
+    end-pi;
+
+    dcl-s llmResponse  varchar(MAX_RESPONSE) ccsid 1208;
+    dcl-s promptOai    varchar(32000)        ccsid 1208;
+
+    writeLog('callLLM(openai_compatible): promptLen=' +
+             %char(%len(%trim(in_prompt))));
+
+    promptOai = %trim(in_prompt);
+
+    Exec SQL
+        SET :llmResponse = (
+            VALUES dbsdk_v1.openai_compatible_chat_generate(
+                prompt   => :promptOai,
+                options  => '{}' )
+        );
+
     if sqlcode <> 0;
-        writeLog('callLLM SQL error: ' + %char(sqlcode));
+        writeLog('callOpenAI: openai_compatible_chat_generate error sqlcode=' +
+                 %char(sqlcode));
         return 'ANSWER: Error calling LLM (sqlcode=' + %char(sqlcode) + ')';
     endif;
 
-    if llmResponse_LEN > 0;
-        rtnVal = %subst(llmResponse_DATA : 1 : llmResponse_LEN);
-    else;
-        rtnVal = '';
-    endif;
+    writeLog('callLLM(openai_compatible): responseLen=' +
+             %char(%len(llmResponse)));
 
-    return rtnVal;
+    return llmResponse;
 
-end-proc callLLM;
+end-proc callOpenAI;
 
 // ===========================================================================
 // loadSkills — reads the IFS Markdown skills file into skillsContent
@@ -554,11 +545,13 @@ end-proc loadSkills;
 // ===========================================================================
 // httpPost — makes an outbound HTTP POST using HTTPAPI, returns response body.
 // body is passed as varchar; copied to a char buffer for %addr compatibility.
+// body is sized at 32767 to accommodate JSON-escaped prompts (up to 32000
+// chars from jsonEscape) plus the JSON envelope overhead.
 // ===========================================================================
 dcl-proc httpPost;
     dcl-pi *n  varchar(MAX_RESPONSE);
-        url   varchar(1000) const;
-        body  varchar(5500) const;
+        url   varchar(1000)    const;
+        body  varchar(32767)   const;
     end-pi;
 
     dcl-s response varchar(MAX_RESPONSE);
@@ -577,6 +570,51 @@ dcl-proc httpPost;
     return response;
 
 end-proc httpPost;
+
+// ===========================================================================
+// callOllama — calls the Ollama /api/generate endpoint directly via HTTPAPI,
+// bypassing dbsdk_v1.ollama_generate whose varchar(1000) prompt cap is too
+// small for a ReAct system prompt + conversation history.
+// Uses the same g_server / g_port / protocol / model globals as setForJob().
+// Returns the response text, or an error string prefixed with 'ANSWER: '.
+// ===========================================================================
+dcl-proc callOllama;
+    dcl-pi *n  varchar(MAX_RESPONSE);
+        in_prompt  varchar(MAX_PROMPT) const;
+    end-pi;
+
+    dcl-s url        varchar(1000);
+    // reqBody must hold the JSON envelope plus the JSON-escaped prompt.
+    // jsonEscape returns up to MAX_RESPONSE (32000) chars in the worst case,
+    // plus ~60 chars of JSON framing, so 32767 is the safe ceiling.
+    dcl-s reqBody    varchar(32767);
+    dcl-s response   varchar(MAX_RESPONSE);
+    dcl-s rtnVal     varchar(MAX_RESPONSE);
+
+    url = %trim(protocol) + '://' + %trim(g_server) + ':' +
+          %trim(%editc(g_port : 'X')) + '/api/generate';
+
+    reqBody = '{"model":"'  + jsonEscape(%trim(model))  + '",' +
+              '"prompt":"'  + jsonEscape(%trim(in_prompt)) + '",' +
+              '"stream":false}';
+
+    response = httpPost(url : reqBody);
+
+    if response = '';
+        writeLog('callOllama: no response from Ollama server.');
+        return 'ANSWER: Error calling LLM (no response from Ollama)';
+    endif;
+
+    rtnVal = extractJsonStr(response : 'response');
+
+    if rtnVal = '';
+        writeLog('callOllama: could not parse response field - returning raw');
+        return response;
+    endif;
+
+    return rtnVal;
+
+end-proc callOllama;
 
 // ===========================================================================
 // fetchMcpTools — calls tools/list on the MCP server
@@ -612,12 +650,12 @@ dcl-proc fetchMcpTools;
         return;
     endmon;
 
-    for i = 1 to mcpListParse.num_tools;
+    for i = 1 to mcpListParse.num_name;
         if i > MAX_MCP_TOOLS;
             leave;
         endif;
-        mcpTools(i).toolName = mcpListParse.t_name(i);
-        mcpTools(i).toolDesc = mcpListParse.t_desc(i);
+        mcpTools(i).toolName = mcpListParse.name(i);
+        mcpTools(i).toolDesc = mcpListParse.description(i);
         mcpToolCount += 1;
     endfor;
 
@@ -660,12 +698,12 @@ dcl-proc callMcpTool;
     endmon;
 
     rtnVal = '';
-    for i = 1 to mcpCallParse.num_content;
-        if mcpCallParse.c_type(i) = 'text';
+    for i = 1 to mcpCallParse.num_type;
+        if mcpCallParse.type(i) = 'text';
             if rtnVal <> '';
                 rtnVal += NL;
             endif;
-            rtnVal += mcpCallParse.c_text(i);
+            rtnVal += mcpCallParse.text(i);
         endif;
     endfor;
 
@@ -1475,7 +1513,13 @@ dcl-proc serveHttp;
                                '"message":"Empty request body"}';
                     writeHttpResponse(connFd : 400 : respBody);
                 else;
-                    respBody = handleQuery(reqBody);
+                    monitor;
+                        respBody = handleQuery(reqBody);
+                    on-error;
+                        writeLog('serveHttp: unhandled exception in handleQuery');
+                        respBody = '{"session_id":"","status":"error",' +
+                                   '"message":"Internal server error"}';
+                    endmon;
                     writeHttpResponse(connFd : 200 : respBody);
                 endif;
 
