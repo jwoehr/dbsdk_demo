@@ -16,14 +16,14 @@
 //          IBM Bob (AI pair programmer)
 // =============================================================================
 
-ctl-opt option(*srcstmt : *nodebugio : *nounref)
-        bnddir('HTTPAPI' : 'YAJL');
+ctl-opt option(*srcstmt : *nodebugio : *nounref);
 
-// Five program parameters
+// Six program parameters
 dcl-pi *n;
     providerName  char(20)    const;   // required
     listenAddr    char(100)   const;   // required: iface:port
     mcpUrl        char(1000)  const;   // optional (blank = omitted)
+    mcpApiKey     char(256)   const;   // optional MCP server API key
     skillsPath    char(1000)  const;   // optional (blank = omitted)
     logPath       char(1000)  const;   // optional (blank = omitted)
 end-pi;
@@ -196,6 +196,7 @@ dcl-s logFd         int(10)  inz(-1);
 dcl-s skillsContent varchar(MAX_SKILLS);
 dcl-s systemPrompt  varchar(MAX_SYSTEM);
 dcl-s g_mcpUrl      varchar(1000);
+dcl-s g_mcpApiKey   varchar(256);
 dcl-s sessionCounter int(10) inz(0);
 
 // ---------------------------------------------------------------------------
@@ -282,7 +283,12 @@ writeLog('LLM provider configured: ' + backend);
 
 // 3. Connect to MCP server (optional)
 if %trim(mcpUrl) <> '';
-    g_mcpUrl = %trim(mcpUrl);
+    g_mcpUrl    = %trim(mcpUrl);
+    g_mcpApiKey = %trim(mcpApiKey);
+    if g_mcpApiKey <> '';
+        writeLog('MCP API key supplied (length=' +
+                 %char(%len(g_mcpApiKey)) + ').');
+    endif;
     // Warn if URL is missing an http:// or https:// scheme; HTTPAPI requires
     // a fully-qualified URL (e.g. 'http://127.0.0.1:8020').
     if %scan('://' : g_mcpUrl) = 0;
@@ -479,8 +485,8 @@ dcl-proc callOpenAI;
         in_prompt  varchar(MAX_PROMPT) const;
     end-pi;
 
-    dcl-s llmResponse  varchar(MAX_RESPONSE) ccsid 1208;
-    dcl-s promptOai    varchar(32000)        ccsid 1208;
+    dcl-s llmResponse  varchar(MAX_RESPONSE) ccsid(1208);
+    dcl-s promptOai    varchar(32000)        ccsid(1208);
 
     writeLog('callLLM(openai_compatible): promptLen=' +
              %char(%len(%trim(in_prompt))));
@@ -570,6 +576,35 @@ dcl-proc httpPost;
     return response;
 
 end-proc httpPost;
+// ===========================================================================
+// httpPostMcp — like httpPost but also sets an Authorization: Bearer header
+// when g_mcpApiKey is non-blank.  Used exclusively for MCP server calls.
+// ===========================================================================
+dcl-proc httpPostMcp;
+    dcl-pi *n  varchar(MAX_RESPONSE);
+        url   varchar(1000)    const;
+        body  varchar(32767)   const;
+    end-pi;
+
+    dcl-s response varchar(MAX_RESPONSE);
+    dcl-s rc2  int(10);
+
+    monitor;
+        rc2 = http_setOption('content-type' : 'application/json');
+        if g_mcpApiKey <> '';
+            rc2 = http_setOption('Authorization' :
+                                 'Bearer ' + %trim(g_mcpApiKey));
+        endif;
+        response = HTTP_String('POST'
+                             : %trim(url)
+                             : body);
+    on-error;
+        response = '';
+    endmon;
+
+    return response;
+
+end-proc httpPostMcp;
 
 // ===========================================================================
 // callOllama — calls the Ollama /api/generate endpoint directly via HTTPAPI,
@@ -632,7 +667,7 @@ dcl-proc fetchMcpTools;
 
     reqBody = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}';
 
-    response = httpPost(%trim(url) : reqBody);
+    response = httpPostMcp(%trim(url) : reqBody);
 
     if response = '';
         writeLog('fetchMcpTools: no response from MCP server.');
@@ -680,7 +715,7 @@ dcl-proc callMcpTool;
               '"params":{"name":"' + %trim(toolName) + '",' +
               '"arguments":' + %trim(toolArgs) + '}}';
 
-    response = httpPost(%trim(url) : reqBody);
+    response = httpPostMcp(%trim(url) : reqBody);
 
     if response = '';
         return 'Tool call returned empty response';

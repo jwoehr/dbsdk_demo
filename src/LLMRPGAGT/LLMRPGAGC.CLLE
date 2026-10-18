@@ -1,8 +1,8 @@
 /*===========================================================================*/
 /* LLMRPGAGC - Command Processing Program for LLMRPGAGT *CMD              */
 /*                                                                           */
-/* Receives the five command parameters and passes them directly to the      */
-/* LLMRPGAGT program.  The three optional parms are always passed because    */
+/* Receives the six command parameters and passes them directly to the       */
+/* LLMRPGAGT program.  The four optional parms are always passed because     */
 /* LLMRPGAGT uses %parms() to decide whether to use them.                   */
 /*                                                                           */
 /* License: Apache License, Version 2.0                                      */
@@ -10,14 +10,15 @@
 /* Authors: Jack Woehr <jwoehr@softwoehr.com>                                */
 /*          IBM Bob (AI pair programmer)                                      */
 /*===========================================================================*/
-             PGM        PARM(&PROVIDER &LISTEN &MCPURL &SKILLS +
-                          &LOGPATH)
+             PGM        PARM(&PROVIDER &LISTEN &MCPURL &MCPAPIKEY +
+                          &SKILLS &LOGPATH)
 
-             DCL        VAR(&PROVIDER) TYPE(*CHAR) LEN(20)
-             DCL        VAR(&LISTEN)   TYPE(*CHAR) LEN(100)
-             DCL        VAR(&MCPURL)   TYPE(*CHAR) LEN(1000)
-             DCL        VAR(&SKILLS)   TYPE(*CHAR) LEN(1000)
-             DCL        VAR(&LOGPATH)  TYPE(*CHAR) LEN(1000)
+             DCL        VAR(&PROVIDER)  TYPE(*CHAR) LEN(20)
+             DCL        VAR(&LISTEN)    TYPE(*CHAR) LEN(100)
+             DCL        VAR(&MCPURL)    TYPE(*CHAR) LEN(1000)
+             DCL        VAR(&MCPAPIKEY) TYPE(*CHAR) LEN(256)
+             DCL        VAR(&SKILLS)    TYPE(*CHAR) LEN(1000)
+             DCL        VAR(&LOGPATH)   TYPE(*CHAR) LEN(1000)
 
 /*---------------------------------------------------------------------------*/
 /* Ensure LIBHTTP and YAJL are on the library list so that LLMRPGAGT's      */
@@ -30,12 +31,12 @@
              MONMSG     MSGID(CPF2103)
 
 /*---------------------------------------------------------------------------*/
-/* Call the RPG agent program with all five parameters.                      */
+/* Call the RPG agent program with all six parameters.                       */
 /* LLMRPGAGT reads %parms() to detect which optional args were supplied;     */
-/* the CMD always populates all five so we always pass all five here.        */
+/* the CMD always populates all six so we always pass all six here.          */
 /*---------------------------------------------------------------------------*/
              CALL       PGM(*LIBL/LLMRPGAGT) PARM(&PROVIDER +
-                           &LISTEN &MCPURL &SKILLS &LOGPATH)
+                           &LISTEN &MCPURL &MCPAPIKEY &SKILLS &LOGPATH)
              MONMSG     MSGID(CPF0000 MCH0000) EXEC(DO)
              SNDPGMMSG  MSG('LLMRPGAGT ended in error - check job log') +
                            TOPGMQ(*SAME) MSGTYPE(*DIAG)

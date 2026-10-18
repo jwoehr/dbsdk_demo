@@ -2,7 +2,7 @@
 /* LLMRPGAGT - Command definition for the ReAct LLM agent                  */
 /*                                                                           */
 /* Wraps CALL PGM(LLMRPGAGT) with named, prompted parameters.               */
-/* Two required parameters, three optional.                                  */
+/* Two required parameters, four optional.                                   */
 /* CPP is specified on CRTCMD PGM() - not inside this source.               */
 /*===========================================================================*/
              CMD        PROMPT('Run LLMRPGAGT ReAct Agent')
@@ -17,22 +17,31 @@
 
              PARM       KWD(LISTEN) TYPE(*CHAR) LEN(100) MIN(1) +
                            CASE(*MIXED) +
-                           PROMPT('Interface and port  iface:port')
+                           PROMPT('Interface:port iface:port')
 
 /*---------------------------------------------------------------------------*/
 /* Optional parameters                                                       */
 /*---------------------------------------------------------------------------*/
              PARM       KWD(MCPURL) TYPE(*CHAR) LEN(1000) MIN(0) +
-                           CASE(*MIXED) +
                            DFT(' ') +
+                           CASE(*MIXED) +
+                           PMTCTL(*PMTRQS) +
                            PROMPT('MCP server URL')
 
-             PARM       KWD(SKILLS) TYPE(*CHAR) LEN(1000) MIN(0) +
-                           CASE(*MIXED) +
+             PARM       KWD(MCPAPIKEY) TYPE(*CHAR) LEN(256) MIN(0) +
                            DFT(' ') +
+                           CASE(*MIXED) +
+                           PMTCTL(*PMTRQS) +
+                           PROMPT('MCP server API key/Bearer tkn')
+
+             PARM       KWD(SKILLS) TYPE(*CHAR) LEN(1000) MIN(0) +
+                           DFT(' ') +
+                           CASE(*MIXED) +
+                           PMTCTL(*PMTRQS) +
                            PROMPT('IFS path to skills file')
 
              PARM       KWD(LOGPATH) TYPE(*CHAR) LEN(1000) MIN(0) +
-                           CASE(*MIXED) +
                            DFT(' ') +
+                           CASE(*MIXED) +
+                           PMTCTL(*PMTRQS) +
                            PROMPT('IFS path for log file')

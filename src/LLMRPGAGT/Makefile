@@ -67,8 +67,8 @@ header:
 
 summary:
 	@printf "$(GREEN)✓ Build complete.$(NC)\n"
-	@printf "  To run via CMD: $(TARGET_LIB)/$(CMD_NAME) PROVIDER('<provider>') LISTEN('<iface:port>')\n"
-	@printf "  To run via CALL: CALL PGM($(TARGET_LIB)/$(RPGLE_NAME)) PARM('<provider>' '<iface:port>')\n"
+	@printf "  To run via CMD: $(TARGET_LIB)/$(CMD_NAME) PROVIDER('<provider>') LISTEN('<iface:port>') [MCPURL('<url>') MCPAPIKEY('<key>')]\n"
+	@printf "  To run via CALL: CALL PGM($(TARGET_LIB)/$(RPGLE_NAME)) PARM('<provider>' '<iface:port>' '<mcpurl>' '<mcpapikey>' '<skills>' '<logpath>')\n"
 
 #-------------------------------------------------------------------------------
 # SQL RPG program
@@ -132,7 +132,8 @@ cpp:
 cmd: cpp
 	@printf "$(YELLOW)>>> Creating $(CMD_NAME) *CMD ...$(NC)\n"
 	@system -K 'ADDLIBLE LIB($(TARGET_LIB))' $(REDIRECT) || true
-	@system -K 'CRTCMD CMD($(TARGET_LIB)/$(CMD_NAME)) PGM($(TARGET_LIB)/$(CPP_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(CMD_NAME).CMD'"'"') ALLOW(*INTERACT *BATCH *BPGM *IPGM) AUT(*EXCLUDE) TEXT('"'"'Run LLMRPGAGT ReAct Agent'"'"')' $(REDIRECT) || { printf "$(RED)x CRTCMD failed$(NC)\n"; exit 1; }
+	@system -K 'DLTCMD CMD($(TARGET_LIB)/$(CMD_NAME))' $(REDIRECT) || true
+	@system -K 'CRTCMD CMD($(TARGET_LIB)/$(CMD_NAME)) PGM($(TARGET_LIB)/$(CPP_NAME)) SRCSTMF('"'"'$(BASE_DIR)/$(CMD_NAME).CMD'"'"') ALLOW(*ALL) AUT(*EXCLUDE) TEXT('"'"'Run LLMRPGAGT ReAct Agent'"'"')' 2>&1 || { printf "$(RED)x CRTCMD failed$(NC)\n"; exit 1; }
 	@printf "$(GREEN)v $(CMD_NAME) *CMD created successfully$(NC)\n"
 
 #-------------------------------------------------------------------------------
