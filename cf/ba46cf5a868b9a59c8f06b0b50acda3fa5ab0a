@@ -1,0 +1,14 @@
+src/LLMRPGAGT/README.md
+  h_00d79582c3c048 275-276,296-304,387-425
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cfba46cf5a868b9a59c8f06b0b50acda3fa5ab0a",
+  "prompts": {},
+  "humans": {
+    "h_00d79582c3c048": {
+      "author": "Jack Woehr <jwoehr@softwoehr.com>"
+    }
+  }
+}
